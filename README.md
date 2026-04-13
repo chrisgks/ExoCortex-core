@@ -1,6 +1,6 @@
 # ExoCortex
 
-ExoCortex hero image
+![ExoCortex hero image](docs/assets/exocortex-og.png)
 
 **Start anywhere. Compose the right context. Keep what compounds.**
 
@@ -221,7 +221,7 @@ The point is simple: the tool is not the system. The system is the local structu
 5. The run is written back into `journal/` as artifacts.
 6. Useful patterns can later be promoted into durable files at the right level.
 
-ExoCortex wrapper to journal demo GIF
+![ExoCortex wrapper to journal demo GIF](docs/assets/exocortex-loop.gif)
 
 ```mermaid
 flowchart LR
@@ -247,7 +247,7 @@ flowchart LR
 
 ExoCortex also includes an optional Mission Control UI in `tools/mission-control/`.
 
-ExoCortex Mission Control screenshot
+![ExoCortex Mission Control screenshot](docs/assets/mission-control.png)
 
 Use it to inspect what is active before or between runs:
 
