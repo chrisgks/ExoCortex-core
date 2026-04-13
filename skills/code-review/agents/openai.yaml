@@ -1,0 +1,4 @@
+version: 1
+display_name: Code Review
+short_description: Run a findings-first audit of a codebase with severity-ranked evidence.
+default_prompt: Review this codebase thoroughly using the code-review skill. Read the project contracts first, inspect the highest-risk subsystems, run relevant verification steps, and return severity-ranked findings with file references.

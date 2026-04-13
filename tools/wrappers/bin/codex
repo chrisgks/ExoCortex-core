@@ -1,0 +1,4 @@
+#!/bin/zsh
+SCRIPT_DIR=${0:A:h}
+ROOT_DIR=${SCRIPT_DIR:h:h:h}
+exec python3 "${ROOT_DIR}/tools/wrappers/exocortex_wrapper.py" codex "$@"
