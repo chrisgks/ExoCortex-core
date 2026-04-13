@@ -6,10 +6,6 @@
 
 ExoCortex is a composition-based cognitive infrastructure platform. It gives you a local system for context, notes, memory, workflows, review, and operating state that compounds over time with low ceremony. After setup, context loading, session capture, and journaling happen automatically in the background while the resulting state stays visible and inspectable. It can launch and capture sessions through `codex`, `claude`, and `gemini` today, but the infrastructure itself is harness-agnostic: you can change tool or model provider, and your system stays with you.
 
-> Current wrapper support: `codex`, `claude`, `gemini`
->
-> Architecture: harness-agnostic. Your context, workflows, rules, and accumulated system are not tied to one provider.
-
 [Quickstart](#quickstart) • [What It Does](#what-it-does) • [Examples](docs/compositional-examples.md) • [Architecture](docs/technical-architecture.md) • [Agents](agents/README.md) • [One Session](#how-one-session-works) • [Repository Shape](#repository-shape) • [Current Status](#current-status) • [Docs](docs/README.md) • [First 5 minutes](docs/first-5-minutes.md)
 
 ## Read This First
@@ -42,6 +38,35 @@ ExoCortex does not rely on one giant persona. It composes stable parts.
 
 Where you stand in the repo determines the context boundary, the contract packet, and the truth surface that should come into view first.
 
+## What The Core Files Mean
+
+These files are not duplicates. Each one holds a different kind of truth:
+
+- `README.md`: what this context is, what it is for, and how to orient yourself inside it
+- `AGENT.md`: how the active role should behave here; this is the local execution stance
+- `STATE.md`: what is true right now; active work, current constraints, live focus, known blockers
+- `MEMORY.md`: durable lessons, heuristics, and preferences that should survive many sessions
+- `WORKFLOWS.md`: repeatable procedures that proved useful and should be reused
+- `SKILLS.md`: references to reusable capability packages or special methods the context should know about
+- `DECISION RULES.md`: explicit constraints, preferences, and routing rules such as "prefer X", "never do Y silently", or "ask before Z"
+
+They contribute differently during runtime:
+
+- `README.md` and `AGENT.md` help the system orient and behave correctly at startup.
+- `STATE.md` helps it avoid starting from stale assumptions.
+- `MEMORY.md`, `WORKFLOWS.md`, `SKILLS.md`, and `DECISION RULES.md` help it start from better accumulated judgment rather than from zero.
+
+They also receive different kinds of promotion:
+
+- If a session discovers something temporary but operationally important, it usually belongs in `STATE.md`.
+- If it discovers a durable lesson or preference, it belongs in `MEMORY.md`.
+- If it discovers a sequence that works reliably, it belongs in `WORKFLOWS.md`.
+- If it discovers a stable constraint or policy, it belongs in `DECISION RULES.md`.
+- If it points to a reusable capability package, helper method, or specialized toolkit, it belongs in `SKILLS.md`.
+- If it is managed knowledge rather than operating guidance, it may belong in `wiki/` instead.
+
+That is how promotions stay legible. The system does not just "remember more." It sorts the right kind of signal into the right kind of file.
+
 ## Why This Exists
 
 Most systems break in the same place:
@@ -55,12 +80,15 @@ ExoCortex exists to fix that with a harder constraint: keep the important state 
 
 ## What This Lets You Do
 
-- Start in the repo root, a domain folder, or a project folder and let that location shape what comes into view first.
-- Keep source material in `raw/`, promote the stable parts into `wiki/`, and use that material later from live work contexts.
-- Turn repeated patterns into durable files such as `MEMORY.md`, `WORKFLOWS.md`, `STATE.md`, rules, templates, and notes.
-- Run planning, execution, review, research, and learning in one system instead of scattering them across separate tools that do not compound.
-- Keep ordinary work from disappearing. Sessions can leave behind transcripts, summaries, candidates, daily journal state, and reviewable follow-ups.
-- Improve not just your projects or life admin, but your actual workflows, defaults, and operating patterns.
+- Notice a pattern while solving a coding problem and realize it echoes something you read in philosophy three months ago, because both lines of thought now live in the same durable system instead of in separate dead silos.
+- Re-enter a product repo after a week of chaos and start from the actual current context instead of spending 40 minutes reconstructing what was true, what was blocked, and what you were about to do.
+- Move between levels of abstraction on demand: jump from raw source captures, to wiki overviews, to concept pages, to deeper analyses, and then back into the live task with the right layer of understanding for the moment.
+- Turn one good debugging session into a better future default, because the fix, the reasoning, and the workflow can be promoted into local memory and reused the next time the same class of failure appears.
+- Have research, planning, implementation, and review reinforce each other instead of resetting between tools, tabs, and chats.
+- Have the system realize you are solving the wrong way because your state is wrong, not because you are bad at the task: a health overlay informed by check-ins, sleep debt, or eventually wearable signals can narrow scope, reduce branching, change pacing, and push you toward the next action that matches your actual capacity.
+- Watch cross-domain ideas emerge on their own: something from health, writing, strategy, or learning changes how you approach engineering, and that connection is recoverable later instead of being a fleeting lucky thought.
+- Notice that a pattern you found while coding also solves a personal-life problem: queue pressure, retry logic, narrow interfaces, or error budgeting stop being just engineering concepts and become usable operating ideas elsewhere in your life.
+- Keep ordinary work from disappearing. A useful session can come back later as journal state, review queues, candidate promotions, stronger workflows, and better startup context.
 
 ## Worked Example
 
@@ -100,7 +128,6 @@ Before you start:
 
 - Python 3 is required for the wrapper runtime and journal worker.
 - At least one real harness CLI must already be installed and working: `codex`, `claude`, or `gemini`.
-- The current wrapper support is for `codex`, `claude`, and `gemini`, but the underlying infrastructure is harness-agnostic.
 - `./tools/wrappers/install.sh` targets `zsh`. If you use another shell, call the wrappers directly from `tools/wrappers/bin/`.
 - Node.js and `tools/mission-control/backend/requirements.txt` are only needed for the optional Mission Control UI.
 

@@ -1,17 +1,15 @@
 # ExoCortex Docs
 
-ExoCortex started as a personal system before it became an open-source repo.
+This page is the visual tour of ExoCortex.
 
-The original constraint was simple: build something that helps one person function in the world with this brain. That constraint is why the project is so opinionated about local state, explicit structure, markdown contracts, durable context, quiet background automation, and a harness-agnostic architecture.
-
-If that problem feels familiar, start here.
+Use the root [../README.md](../README.md) for the product overview and quickstart. Use this page when you want the screenshots, loop visuals, and architecture posters in one place.
 
 ## Start Here
 
-- Read [compositional-examples.md](compositional-examples.md) first. That is where the composition model becomes concrete.
-- If you want to get the loop running, read [first-5-minutes.md](first-5-minutes.md).
-- If you want the technical model, read [technical-architecture.md](technical-architecture.md).
-- If you want the stable role set, read [../agents/README.md](../agents/README.md).
+- Start with [../README.md](../README.md) if you have not read the main landing page yet.
+- Read [compositional-examples.md](compositional-examples.md) if you want the composition model to become concrete.
+- Read [first-5-minutes.md](first-5-minutes.md) if you want the shortest path to one working loop.
+- Read [technical-architecture.md](technical-architecture.md) if you want the system model.
 
 ## Demo Loop
 
@@ -62,8 +60,6 @@ The radar view shows the live action surface: current context, routing policy, a
 </p>
 
 The roster stays explicit. Stable agents are part of the architecture, not hidden prompt folklore.
-
-Mission Control is a view onto the system, not the system itself. The source of truth stays in markdown.
 
 ## Visual Architecture
 

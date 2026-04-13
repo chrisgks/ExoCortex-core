@@ -21,13 +21,6 @@ Some of these skills or workflows may exist today, and some may be local package
 you add for a specific context. The point of the examples is the composition
 pattern, not the claim that every named method already ships as a built-in skill.
 
-## Support vs Architecture
-
-- **Current wrapper support**: `codex`, `claude`, `gemini`
-- **Underlying architecture**: harness-agnostic
-
-You can change tool or model provider. The infrastructure, local contracts, workflows, rules, journal, and wiki structure stay with you.
-
 ## 1. A Software Engineer Or Builder For Your Product
 
 Suppose you are a CEO who vibecodes and you want the system to behave like a serious software engineer inside your real product repo.

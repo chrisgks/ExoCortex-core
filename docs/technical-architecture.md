@@ -4,7 +4,7 @@ This page explains ExoCortex as a system, not as a collection of claims.
 
 The short version:
 
-ExoCortex is a local, file-based cognitive infrastructure platform. It uses explicit context boundaries, stable roles, reusable skills, ordinary tools, and durable state so work compounds instead of resetting. After setup, context loading, session capture, and journaling happen automatically in the background, but the resulting state remains file-based and inspectable. The current wrapper layer supports `codex`, `claude`, and `gemini`, but the architecture itself is harness-agnostic: you can change tool or model provider, and the system stays with you.
+ExoCortex is a local, file-based cognitive infrastructure platform. It uses explicit context boundaries, stable roles, reusable skills, ordinary tools, and durable state so work compounds instead of resetting. After setup, context loading, session capture, and journaling happen automatically in the background, but the resulting state remains file-based and inspectable.
 
 See also:
 
@@ -250,7 +250,7 @@ That brings several benefits:
 - context can be promoted gradually instead of dumped into opaque memory
 - different tools can share the same underlying operating surface
 
-The UI and wrappers are useful, but they are not the source of truth.
+The UI and wrappers are useful, but they are not the underlying memory.
 
 ## Minimal Mental Model
 
