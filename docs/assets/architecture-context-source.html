@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ExoCortex Architecture Context Surface</title>
+    <style>
+      :root {
+        --bg: #07090d;
+        --panel: rgba(13, 17, 23, 0.84);
+        --panel-strong: rgba(17, 23, 32, 0.96);
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #f5f7fb;
+        --muted: #8a94a7;
+        --cyan: #66fcf1;
+        --magenta: #ff007f;
+        --amber: #f2a900;
+        --green: #42d27e;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        width: 1440px;
+        height: 900px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at top left, rgba(102,252,241,0.16), transparent 34%),
+          radial-gradient(circle at top right, rgba(255,0,127,0.16), transparent 32%),
+          linear-gradient(160deg, #05070b 0%, #0b1017 45%, #0d121a 100%);
+        color: var(--text);
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .frame {
+        width: 1440px;
+        height: 900px;
+        padding: 34px;
+      }
+
+      .card {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        padding: 30px;
+        border: 1px solid var(--border);
+        border-radius: 32px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+          rgba(8, 10, 15, 0.74);
+        box-shadow:
+          0 28px 70px rgba(0,0,0,0.42),
+          inset 0 1px 0 rgba(255,255,255,0.04);
+        overflow: hidden;
+      }
+
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: linear-gradient(180deg, rgba(0,0,0,0.42), transparent 78%);
+      }
+
+      .header {
+        display: grid;
+        grid-template-columns: 1.3fr 0.7fr;
+        gap: 28px;
+        margin-bottom: 28px;
+      }
+
+      .eyebrow {
+        color: var(--cyan);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 10px 0 14px;
+        font-size: 68px;
+        line-height: 0.92;
+        letter-spacing: -0.055em;
+      }
+
+      .subhead {
+        max-width: 760px;
+        color: #d6ddeb;
+        font-size: 24px;
+        line-height: 1.3;
+      }
+
+      .quote {
+        align-self: end;
+        padding: 20px 22px;
+        border: 1px solid rgba(102,252,241,0.16);
+        border-radius: 22px;
+        background: rgba(102,252,241,0.06);
+      }
+
+      .quote strong {
+        display: block;
+        margin-bottom: 10px;
+        color: var(--cyan);
+        font-size: 13px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .quote p {
+        margin: 0;
+        color: #d7edf0;
+        font-size: 18px;
+        line-height: 1.4;
+      }
+
+      .panels {
+        display: grid;
+        grid-template-columns: 0.95fr 0.95fr 1.1fr;
+        gap: 20px;
+      }
+
+      .panel {
+        min-height: 540px;
+        padding: 20px;
+        border-radius: 24px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        backdrop-filter: blur(18px);
+      }
+
+      .label {
+        margin-bottom: 16px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .node {
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04);
+      }
+
+      .node strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 16px;
+      }
+
+      .node span {
+        display: block;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .node.system { border-color: rgba(255,0,127,0.22); background: rgba(255,0,127,0.08); }
+      .node.context { border-color: rgba(102,252,241,0.22); background: rgba(102,252,241,0.08); }
+      .node.files { border-color: rgba(242,169,0,0.22); background: rgba(242,169,0,0.08); }
+
+      .path {
+        margin-bottom: 14px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04);
+        color: #dce3f0;
+        font-size: 17px;
+        line-height: 1.45;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .path .accent { color: var(--cyan); }
+      .path .muted { color: var(--muted); }
+
+      .packet {
+        padding: 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: var(--panel-strong);
+      }
+
+      .packet ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+
+      .packet li {
+        margin-bottom: 10px;
+        color: #d5dcea;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .packet code,
+      .rail code {
+        color: var(--cyan);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+
+      .rail {
+        display: grid;
+        gap: 14px;
+      }
+
+      .rail-item {
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.03);
+      }
+
+      .rail-item strong {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 15px;
+      }
+
+      .rail-item p {
+        margin: 0;
+        color: #d5dcea;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .rail-item.highlight {
+        border-color: rgba(66,210,126,0.22);
+        background: rgba(66,210,126,0.08);
+      }
+
+      .footer {
+        position: absolute;
+        left: 30px;
+        right: 30px;
+        bottom: 22px;
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted);
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="card">
+        <div class="grid"></div>
+
+        <div class="header">
+          <div>
+            <div class="eyebrow">Architecture Surface</div>
+            <h1>Context boundaries are the retrieval system.</h1>
+            <div class="subhead">
+              ExoCortex does not dump everything into one global memory bucket. The folder you start in determines the boundary, the visible contract packet, and the truth you should inherit first.
+            </div>
+          </div>
+          <div class="quote">
+            <strong>Core Rule</strong>
+            <p>Project truth stays project-local. Domain patterns stay domain-local. Root promotion happens only when it is genuinely cross-context.</p>
+          </div>
+        </div>
+
+        <div class="panels">
+          <section class="panel">
+            <div class="label">Repository Surface</div>
+            <div class="stack">
+              <div class="node context">
+                <strong>Repo root</strong>
+                <span>Broad routing, onboarding, cross-domain coordination.</span>
+              </div>
+              <div class="node system">
+                <strong>system/</strong>
+                <span>Control plane for persona, rules, priorities, and health.</span>
+              </div>
+              <div class="node">
+                <strong>agents/</strong>
+                <span>Stable execution roles rather than endless new personas.</span>
+              </div>
+              <div class="node">
+                <strong>domains/ → projects/</strong>
+                <span>The main truth boundaries for execution.</span>
+              </div>
+              <div class="node files">
+                <strong>journal/ • wiki/ • raw/</strong>
+                <span>Durable outputs, managed synthesis, and near-original source material.</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="label">Active Boundary</div>
+            <div class="path">
+              <span class="muted">Start here:</span><br />
+              <span class="accent">domains/learning/projects/linear-algebra/</span>
+            </div>
+            <div class="packet">
+              <div class="label">Visible Contract Packet</div>
+              <ul>
+                <li><code>README.md</code> tells the system what this context is for.</li>
+                <li><code>AGENT.md</code> shapes how the active role should behave here.</li>
+                <li><code>STATE.md</code> carries what is currently true right now.</li>
+                <li><code>MEMORY.md</code> and <code>WORKFLOWS.md</code> carry durable local learning.</li>
+                <li>Ancestor context is loaded as a smaller supporting packet, not as a replacement for the local truth.</li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="label">What The Boundary Controls</div>
+            <div class="rail">
+              <div class="rail-item">
+                <strong>1. Which files come into view first</strong>
+                <p>The wrapper loads local contracts plus the smallest relevant ancestor surface, so retrieval starts coherent instead of global and noisy.</p>
+              </div>
+              <div class="rail-item">
+                <strong>2. Which agent and mode become the default</strong>
+                <p>Stable roles and operating modes are resolved from the active context rather than guessed ad hoc every session.</p>
+              </div>
+              <div class="rail-item highlight">
+                <strong>3. Where future signal should land</strong>
+                <p>Useful output does not just “exist in chat.” It lands in <code>journal/</code>, <code>wiki/</code>, or promoted local contracts at the right level.</p>
+              </div>
+              <div class="rail-item">
+                <strong>4. What should stay local vs become cross-context</strong>
+                <p>This is how ExoCortex keeps inspectable memory without turning the whole repo into an undifferentiated retrieval dump.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="footer">
+          <span>Folder location shapes context</span>
+          <span>Readable contracts define truth</span>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

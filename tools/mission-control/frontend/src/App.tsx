@@ -68,6 +68,35 @@ const ACTION_SPACE_LABELS: Record<ActionSpaceNode['column'], string> = {
   actions: 'Moves',
   targets: 'Destinations',
 };
+const VALID_TABS = new Set([
+  'radar',
+  'inbox',
+  'loops',
+  'forge',
+  'telemetry',
+  'health',
+  'graph',
+  'calendar',
+  'journal',
+]);
+const LAUNCHPAD_DISMISSED_KEY = 'mission-control-launchpad-dismissed';
+
+const readInitialTab = () => {
+  if (typeof window === 'undefined') return 'radar';
+  const requested = new URLSearchParams(window.location.search).get('tab');
+  return requested && VALID_TABS.has(requested) ? requested : 'radar';
+};
+
+const readInitialLaunchpadState = () => {
+  if (typeof window === 'undefined') return true;
+  const requested = new URLSearchParams(window.location.search).get('launchpad');
+  if (requested) {
+    const normalized = requested.toLowerCase();
+    if (['0', 'false', 'hide', 'off'].includes(normalized)) return false;
+    if (['1', 'true', 'show', 'on'].includes(normalized)) return true;
+  }
+  return window.localStorage.getItem(LAUNCHPAD_DISMISSED_KEY) !== '1';
+};
 
 const SidebarIcon = ({ icon: Icon, active, onClick, label }: any) => (
   <motion.div
@@ -229,7 +258,7 @@ const ActionSpaceGraph = ({
 };
 
 function App() {
-  const [activeTab, setActiveTab] = useState('radar');
+  const [activeTab, setActiveTab] = useState(readInitialTab);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [offloadInput, setOffloadInput] = useState('');
@@ -246,7 +275,7 @@ function App() {
   
   // ADHD UX States
   const [isLowStim, setIsLowStim] = useState(false);
-  const [showLaunchpad, setShowLaunchpad] = useState(true);
+  const [showLaunchpad, setShowLaunchpad] = useState(readInitialLaunchpadState);
   
   // Cockpit / Correction State
   const [cockpitProject, setCockpitProject] = useState<any>(null);
@@ -486,6 +515,13 @@ function App() {
 
   const COLORS = ['#66fcf1', '#ff007f', '#f2a900', '#4e54c8', '#8f94fb'];
 
+  const dismissLaunchpad = () => {
+    setShowLaunchpad(false);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LAUNCHPAD_DISMISSED_KEY, '1');
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen bg-[#0b0c10] text-white overflow-hidden font-sans p-4 gap-4">
       {/* Sidebar */}
@@ -541,14 +577,14 @@ function App() {
                       onClick={() => {
                         const activeProj = projects.find(p => p.status === 'active');
                         if (activeProj) handleActivate(activeProj.path);
-                        setShowLaunchpad(false);
+                        dismissLaunchpad();
                       }}
                       className="px-12 py-6 bg-neon-cyan text-black text-xl font-black uppercase tracking-widest rounded-2xl shadow-[0_0_40px_rgba(102,252,241,0.4)] hover:scale-105 transition-all"
                     >
                       Start Session
                     </button>
                     <button 
-                      onClick={() => setShowLaunchpad(false)}
+                      onClick={dismissLaunchpad}
                       className="px-8 py-6 bg-white/5 border border-white/10 text-gray-400 text-sm font-bold uppercase tracking-widest rounded-2xl hover:bg-white/10 transition-all"
                     >
                       View All Projects

@@ -53,7 +53,35 @@ This is based on real command output from this repo:
   <img src="assets/mission-control.png" alt="ExoCortex Mission Control screenshot" width="100%" />
 </p>
 
+The radar view shows the live action surface: current context, routing policy, available moves, and likely destinations.
+
+### Agent Forge
+
+<p align="center">
+  <img src="assets/mission-control-forge.png" alt="ExoCortex Agent Forge screenshot" width="100%" />
+</p>
+
+The roster stays explicit. Stable agents are part of the architecture, not hidden prompt folklore.
+
 Mission Control is a view onto the system, not the system itself. The source of truth stays in markdown.
+
+## Visual Architecture
+
+### Context Boundaries
+
+<p align="center">
+  <img src="assets/architecture-context.png" alt="ExoCortex context boundary architecture poster" width="100%" />
+</p>
+
+This is the core retrieval rule: folder location determines boundary, boundary determines visible contracts, and visible contracts determine what truth comes into scope first.
+
+### Compounding Loop
+
+<p align="center">
+  <img src="assets/architecture-loop.png" alt="ExoCortex compounding loop architecture poster" width="100%" />
+</p>
+
+This is the core systems claim: the work compounds because durable output lands back in inspectable files.
 
 ## Architecture At A Glance
 

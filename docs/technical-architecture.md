@@ -30,6 +30,10 @@ flowchart TD
 
 The repository is not just storage. It is the operating surface.
 
+![ExoCortex context boundary architecture](assets/architecture-context.png)
+
+The visual above is the practical version of the repo diagram: context boundaries decide what comes into view first, what stays local, and where later signal should land.
+
 ## Composition Flow
 
 ```mermaid
@@ -56,6 +60,10 @@ flowchart LR
 That is the composition model:
 
 `task handling = context boundary x loaded context x agent x mode x rules x skills x tools x durable state`
+
+![ExoCortex compounding loop architecture](assets/architecture-loop.png)
+
+This is the operational claim in one frame: ordinary tool use is not enough by itself; the loop matters because the output is written back into reusable files.
 
 ## Core Entity Types
 
@@ -120,6 +128,10 @@ The important relationships are:
 
 This is why ExoCortex is composition-based. A task is not solved by one giant persona. It is solved by combining the right context, role, stance, procedure, and tools.
 
+![ExoCortex Mission Control radar view](assets/mission-control.png)
+
+Mission Control's radar view is a concrete expression of that model. It surfaces context, policies, moves, and destinations without pretending the UI itself is the underlying memory.
+
 ## Why Not Make A New Agent For Everything
 
 Because that would destroy the clarity the system is trying to preserve.
@@ -155,6 +167,10 @@ Current agents:
 - `life-systems`: life admin, routines, logistics, and personal operating systems
 
 These were selected because they map to durable classes of work that recur across contexts. They are broad enough to generalize, but specific enough to produce different behavior.
+
+![ExoCortex Agent Forge screenshot](assets/mission-control-forge.png)
+
+The live roster view makes the design choice visible: the system keeps a small stable agent set and relies on composition for specialization.
 
 ## Why This Generalizes
 

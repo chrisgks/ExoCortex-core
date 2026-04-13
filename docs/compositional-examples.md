@@ -28,7 +28,65 @@ pattern, not the claim that every named method already ships as a built-in skill
 
 You can change tool or model provider. The infrastructure, local contracts, workflows, rules, journal, and wiki structure stay with you.
 
-## 1. A Teacher For Topic X
+## 1. A Software Engineer Or Builder For Your Product
+
+Suppose you are a CEO who vibecodes and you want the system to behave like a serious software engineer inside your real product repo.
+
+This is not a new "software engineer" persona. It is mostly the existing `builder` agent, composed with the right context and a few supporting roles:
+
+- **Context**: `domains/work/projects/my-product/` or the actual product repo root
+- **Agents**: `builder` first, sometimes `planning` for scoping and `reviewer` for release-risk checks
+- **Modes**: conversation, application, processing
+- **Rules**:
+  - prefer the smallest viable patch over broad speculative cleanup
+  - inspect the repo before editing anything
+  - do not claim success without running a real verification path
+  - surface blockers and assumptions explicitly instead of bluffing
+- **Skills and workflows**:
+  - feature slicing
+  - bug isolation
+  - implementation workflow
+  - test-and-fix loop
+  - release review when the change matters
+- **Tools**:
+  - wrapped CLI sessions
+  - local test runner
+  - repo scripts
+  - diffs
+  - `journal/` for session summaries and follow-up signal
+- **Durable outputs**:
+  - code changes
+  - tests or verification notes
+  - clearer implementation decisions
+  - reusable project-local workflows and rules
+
+How it works:
+
+- You start in the actual product folder, not in some abstract global workspace.
+- `builder` reads the nearest local contracts and inspects the repo before touching code.
+- It identifies the likely code area, the verification path, and the smallest change that could actually solve the problem.
+- It implements the change, runs the relevant checks, and reports what changed, what passed, and what still looks risky.
+- If the request is underspecified, `planning` can tighten the scope first.
+- If the change is risky or user-facing, `reviewer` can do an adversarial pass before you trust it.
+
+What this looks like in practice:
+
+- You say: "Add a billing export button to the admin dashboard and make it downloadable as CSV."
+- `builder` inspects the app structure, finds the dashboard code, finds the export path or missing backend route, and checks how the repo currently verifies frontend and API changes.
+- It makes the smallest working slice instead of trying to redesign billing, exports, permissions, and admin UX all at once.
+- It runs the tests or build that actually matter.
+- It leaves behind a diff, verification evidence, and a session summary you can come back to later.
+
+Why this is valuable for a vibecoding CEO:
+
+- you do not have to restate the entire product every session
+- the system works inside the real repo instead of in detached chat fantasies
+- the builder behaves like an execution role, not a brainstorming toy
+- the repo can gradually accumulate better local rules, workflows, and context as you ship
+
+That composition gives you a practical software-engineering copilot without inventing a fake permanent "CTO agent."
+
+## 2. A Teacher For Topic X
 
 Suppose you want a "teacher" for `linear algebra`.
 
@@ -66,7 +124,7 @@ How it works:
 
 That composition gives you a teacher.
 
-## 2. An Accountant Or Bookkeeper
+## 3. An Accountant Or Bookkeeper
 
 Suppose you want a local operating system for personal or small-business finance.
 
@@ -106,7 +164,7 @@ How it works:
 
 That composition gives you an accountant-like system without inventing a separate accountant persona.
 
-## 3. A Research Engineer
+## 4. A Research Engineer
 
 Suppose you want a system that can go from reading papers to changing code.
 
@@ -137,7 +195,7 @@ Suppose you want a system that can go from reading papers to changing code.
 
 That composition gives you a research engineer.
 
-## 4. A Writing Editor
+## 5. A Writing Editor
 
 Suppose you want a system that helps produce better essays over time.
 
@@ -166,7 +224,7 @@ Suppose you want a system that helps produce better essays over time.
 
 That composition gives you an editor.
 
-## 5. A Chief Of Staff For A Project
+## 6. A Chief Of Staff For A Project
 
 Suppose you want a system that keeps a project moving, not just answers isolated questions.
 

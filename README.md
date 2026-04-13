@@ -38,6 +38,10 @@ task handling =
 
 ExoCortex does not rely on one giant persona. It composes stable parts.
 
+![ExoCortex context boundary architecture](docs/assets/architecture-context.png)
+
+Where you stand in the repo determines the context boundary, the contract packet, and the truth surface that should come into view first.
+
 ## Why This Exists
 
 Most systems break in the same place:
@@ -248,6 +252,8 @@ flowchart LR
 ExoCortex also includes an optional Mission Control UI in `tools/mission-control/`.
 
 ![ExoCortex Mission Control screenshot](docs/assets/mission-control.png)
+
+The radar view makes the active context, policies, available moves, and destinations inspectable without turning the UI into a second source of truth.
 
 Use it to inspect what is active before or between runs:
 
