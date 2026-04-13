@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ExoCortex Terminal Walkthrough</title>
+    <style>
+      :root {
+        --bg: #07090d;
+        --panel: #0f131b;
+        --panel-2: #121925;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #f5f7fb;
+        --muted: #8a94a7;
+        --cyan: #66fcf1;
+        --green: #42d27e;
+        --amber: #f2a900;
+        --magenta: #ff007f;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        width: 1440px;
+        height: 920px;
+        overflow: hidden;
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(102,252,241,0.14), transparent 34%),
+          radial-gradient(circle at top right, rgba(255,0,127,0.16), transparent 32%),
+          linear-gradient(160deg, #05070b 0%, #0a0f15 42%, #0d121a 100%);
+        color: var(--text);
+      }
+
+      .frame {
+        position: relative;
+        width: 1440px;
+        height: 920px;
+        padding: 36px;
+      }
+
+      .shell {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 30px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(8, 10, 15, 0.82);
+        box-shadow: 0 28px 70px rgba(0,0,0,0.45);
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 58px;
+        padding: 0 22px;
+        background: rgba(255,255,255,0.04);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .dots {
+        display: flex;
+        gap: 10px;
+      }
+
+      .dot {
+        width: 11px;
+        height: 11px;
+        border-radius: 999px;
+      }
+
+      .dot:nth-child(1) { background: #ff5f57; }
+      .dot:nth-child(2) { background: #febc2e; }
+      .dot:nth-child(3) { background: #28c840; }
+
+      .title {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .body {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 24px;
+        height: calc(100% - 58px);
+        padding: 24px;
+      }
+
+      .terminal {
+        border-radius: 24px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(18,25,37,0.95), rgba(10,14,20,0.95));
+      }
+
+      .terminal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border);
+        background: rgba(255,255,255,0.03);
+      }
+
+      .terminal-head span {
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      pre {
+        margin: 0;
+        padding: 18px 20px 22px;
+        color: #d8e0eb;
+        font-size: 18px;
+        line-height: 1.42;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        white-space: pre-wrap;
+      }
+
+      .prompt { color: var(--cyan); }
+      .good { color: var(--green); }
+      .warn { color: var(--amber); }
+      .accent { color: var(--magenta); }
+      .muted { color: var(--muted); }
+
+      .sidebar {
+        display: grid;
+        grid-template-rows: 1fr 1fr 1fr;
+        gap: 18px;
+      }
+
+      .card {
+        border-radius: 24px;
+        border: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(18,25,37,0.92), rgba(10,14,20,0.92));
+        padding: 18px;
+      }
+
+      .card .eyebrow {
+        margin-bottom: 12px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .card h2 {
+        margin: 0 0 10px;
+        font-size: 28px;
+        line-height: 1.05;
+        letter-spacing: -0.04em;
+      }
+
+      .card p, .card li {
+        color: #d1d8e5;
+        font-size: 17px;
+        line-height: 1.45;
+      }
+
+      ul {
+        padding-left: 18px;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="shell">
+        <div class="topbar">
+          <div class="dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+          <div class="title">ExoCortex • Real Terminal Walkthrough</div>
+          <div class="title">local-first / inspectable</div>
+        </div>
+
+        <div class="body">
+          <div class="terminal">
+            <div class="terminal-head">
+              <span>what it looks like in practice</span>
+              <span>repo root</span>
+            </div>
+            <pre><span class="prompt">$</span> ./tools/wrappers/install.sh
+Installed ExoCortex wrapper shell block in ~/.zshrc
+
+<span class="prompt">$</span> exocortex-doctor
+ExoCortex Wrapper Doctor
+root: /path/to/ExoCortex
+wrapper_bin_on_path: <span class="good">ok</span>
+authoritative_preload: <span class="good">ok</span>
+preload_total_chars: 13005
+
+preloaded_files:
+  - system/README.md
+  - system/AGENT.md
+  - system/STATE.md
+  - README.md
+  - wiki/index.md
+
+[<span class="good">ok</span>] codex  -> /path/to/ExoCortex/tools/wrappers/bin/codex
+[<span class="good">ok</span>] claude -> /path/to/ExoCortex/tools/wrappers/bin/claude
+[<span class="good">ok</span>] gemini -> /path/to/ExoCortex/tools/wrappers/bin/gemini
+
+<span class="prompt">$</span> codex --help
+<span class="warn">WARNING:</span> proceeding, even though we could not update PATH
+Codex CLI
+Usage: codex [OPTIONS] [PROMPT]</pre>
+          </div>
+
+          <div class="sidebar">
+            <div class="card">
+              <div class="eyebrow">What this proves</div>
+              <h2>The wrapper layer is real.</h2>
+              <p>These are live outputs from this repo, not invented CLI text. The system really resolves wrapped harnesses and really assembles an authoritative preload.</p>
+            </div>
+
+            <div class="card">
+              <div class="eyebrow">Why it matters</div>
+              <ul>
+                <li>You do not start cold.</li>
+                <li>You can inspect exactly what context got loaded.</li>
+                <li>The repo can evolve through ordinary use rather than isolated prompts.</li>
+              </ul>
+            </div>
+
+            <div class="card">
+              <div class="eyebrow">Founding constraint</div>
+              <h2>Built for one real brain first.</h2>
+              <p>This project started as infrastructure for functioning better in the world, not as a generic AI framework. That is why it privileges explicit contracts, durable context, and recoverable state.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

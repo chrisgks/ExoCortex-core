@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ExoCortex</title>
+    <meta
+      name="description"
+      content="A local-first operating system for AI work. ExoCortex turns folders, notes, and sessions into compounding context."
+    />
+    <meta property="og:title" content="ExoCortex" />
+    <meta
+      property="og:description"
+      content="A local-first operating system for AI work. Built to help one real brain function better, then opened up for others."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="assets/exocortex-og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ExoCortex" />
+    <meta
+      name="twitter:description"
+      content="A local-first operating system for AI work. Folders, notes, sessions, journals, and compounding context."
+    />
+    <meta name="twitter:image" content="assets/exocortex-og.png" />
+    <style>
+      :root {
+        --bg: #07090d;
+        --panel: rgba(13, 17, 23, 0.82);
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #f5f7fb;
+        --muted: #8a94a7;
+        --cyan: #66fcf1;
+        --magenta: #ff007f;
+        --amber: #f2a900;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, rgba(102,252,241,0.16), transparent 34%),
+          radial-gradient(circle at top right, rgba(255,0,127,0.18), transparent 30%),
+          linear-gradient(160deg, #05070b 0%, #0b1017 42%, #0d121a 100%);
+        color: var(--text);
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      a { color: inherit; }
+
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 28px 20px 60px;
+      }
+
+      .nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 28px;
+      }
+
+      .brand {
+        color: var(--cyan);
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        text-decoration: none;
+      }
+
+      .navlinks {
+        display: flex;
+        gap: 18px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .hero, .section {
+        border: 1px solid var(--border);
+        border-radius: 28px;
+        background: var(--panel);
+        backdrop-filter: blur(18px);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+      }
+
+      .hero {
+        overflow: hidden;
+        margin-bottom: 26px;
+      }
+
+      .hero img, .shot img {
+        width: 100%;
+        display: block;
+      }
+
+      .hero-copy {
+        padding: 28px;
+      }
+
+      .hero-copy h1 {
+        margin: 0 0 12px;
+        font-size: clamp(40px, 8vw, 76px);
+        line-height: 0.92;
+        letter-spacing: -0.055em;
+      }
+
+      .hero-copy p {
+        max-width: 760px;
+        margin: 0;
+        color: #d6ddeb;
+        font-size: 22px;
+        line-height: 1.35;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 24px;
+        margin-bottom: 24px;
+      }
+
+      .section {
+        padding: 22px;
+      }
+
+      .eyebrow {
+        margin-bottom: 12px;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      h2 {
+        margin: 0 0 12px;
+        font-size: 32px;
+        letter-spacing: -0.04em;
+      }
+
+      p, li {
+        color: #d3dae8;
+        font-size: 17px;
+        line-height: 1.55;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      .shot {
+        overflow: hidden;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+      }
+
+      .cta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .cta a {
+        padding: 12px 16px;
+        border-radius: 999px;
+        text-decoration: none;
+        border: 1px solid var(--border);
+        background: rgba(255,255,255,0.04);
+      }
+
+      .cta a.primary {
+        color: var(--cyan);
+        border-color: rgba(102,252,241,0.28);
+      }
+
+      .note {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      @media (max-width: 900px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <nav class="nav">
+        <a class="brand" href="../README.md">ExoCortex</a>
+        <div class="navlinks">
+          <a href="README.md">Docs</a>
+          <a href="first-5-minutes.md">First 5 Minutes</a>
+          <a href="../README.md">Repo</a>
+        </div>
+      </nav>
+
+      <section class="hero">
+        <img src="assets/exocortex-og.png" alt="ExoCortex hero image" />
+        <div class="hero-copy">
+          <h1>Built for one real brain first.</h1>
+          <p>
+            ExoCortex started as personal infrastructure for functioning better in the world. It grew into a local-first operating system for AI work where folders, notes, and sessions become durable context instead of disposable chat.
+          </p>
+          <div class="cta">
+            <a class="primary" href="../README.md">Read the README</a>
+            <a href="first-5-minutes.md">Start in 5 minutes</a>
+            <a href="README.md">Browse the docs</a>
+          </div>
+          <div class="note">
+            If you publish this page through GitHub Pages, these Open Graph tags will use <code>assets/exocortex-og.png</code> for shares. For the repository link itself on GitHub, upload the same image in the repo's Social Preview settings.
+          </div>
+        </div>
+      </section>
+
+      <div class="grid">
+        <section class="section">
+          <div class="eyebrow">Demo Loop</div>
+          <div class="shot"><img src="assets/exocortex-loop-poster.png" alt="ExoCortex demo loop poster" /></div>
+          <p>The core loop is simple: start in the right folder, launch a wrapped harness, capture the session, promote durable signal, and make the next session better. The full animated version lives at <a href="assets/exocortex-loop.gif">assets/exocortex-loop.gif</a>.</p>
+        </section>
+
+        <section class="section">
+          <div class="eyebrow">Real Terminal Walkthrough</div>
+          <div class="shot"><img src="assets/terminal-walkthrough.png" alt="Real terminal walkthrough screenshot" /></div>
+          <p>This is based on real output from the wrapper doctor and the wrapped Codex CLI, not invented marketing text.</p>
+        </section>
+      </div>
+
+      <div class="grid">
+        <section class="section">
+          <div class="eyebrow">Mission Control</div>
+          <div class="shot"><img src="assets/mission-control.png" alt="Mission Control screenshot" /></div>
+          <p>Mission Control gives a control-surface view of contexts, policies, moves, and review queues without becoming a second source of truth.</p>
+        </section>
+
+        <section class="section">
+          <div class="eyebrow">What To Read</div>
+          <ul>
+            <li><a href="../README.md">README.md</a> for the GitHub landing page and quickstart.</li>
+            <li><a href="compositional-examples.md">Compositional Examples</a> for teacher, accountant, editor, and research-engineer compositions.</li>
+            <li><a href="first-5-minutes.md">First 5 Minutes</a> for the shortest real onboarding path.</li>
+            <li><a href="technical-architecture.md">Technical Architecture</a> for the system model: entities, relationships, agents, skills, tools, and composition.</li>
+            <li><a href="../agents/README.md">agents/README.md</a> for the stable role set and agent rationale.</li>
+            <li><a href="README.md">Docs README</a> for the visual architecture tour.</li>
+            <li><a href="../journal/README.md">journal/README.md</a> for the compounding loop.</li>
+            <li><a href="../tools/wrappers/README.md">tools/wrappers/README.md</a> for the wrapper contract.</li>
+          </ul>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

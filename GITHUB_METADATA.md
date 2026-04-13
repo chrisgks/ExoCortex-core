@@ -5,22 +5,22 @@ Use these values when creating or updating the public GitHub repository.
 ## Repository
 
 - name: `exocortex-core`
-- description: `Local-first, markdown-native operating layer for context-aware AI work.`
+- description: `A composition-based cognitive infrastructure platform for context, workflows, memory, and durable state.`
 - homepage: optional
 - visibility: public
 
 ## Suggested Topics
 
-- `ai`
-- `agents`
+- `cognitive-infrastructure`
+- `personal-knowledge-management`
 - `local-first`
+- `workflow`
 - `markdown`
 - `knowledge-management`
-- `obsidian`
-- `developer-tools`
-- `productivity`
+- `agentic-workflows`
 - `context-engineering`
-- `python`
+- `external-brain`
+- `productivity`
 
 ## Social Preview
 
@@ -28,7 +28,11 @@ Use these values when creating or updating the public GitHub repository.
 
 ## README Subtitle
 
-`A local-first operating layer for context-aware AI work.`
+`A composition-based cognitive infrastructure platform.`
+
+## Elevator Line
+
+`ExoCortex is a composition-based cognitive infrastructure platform: local, harness-agnostic, and built to help context, workflows, and memory compound over time.`
 
 ## Initial Release Title
 
@@ -36,12 +40,13 @@ Use these values when creating or updating the public GitHub repository.
 
 ## Initial Release Notes
 
-First public release of the ExoCortex core.
+First public release of ExoCortex as a composition-based cognitive infrastructure platform.
 
 Includes:
 
 - wrapped harness entrypoints for `codex`, `claude`, and `gemini`
-- a markdown-native context and journaling model
+- a harness-agnostic, markdown-native context and journaling model
+- first-run cron automation for low-risk background status refresh
 - clean-slate bootstrap and scaffold tooling
 - reusable agents, skills, templates, and tests
 

@@ -5,7 +5,7 @@ Use this checklist before updating the public `exocortex-core` repository from t
 ## Export
 
 1. Regenerate the public export:
-   `python3 tools/export_public_seed.py`
+   `python3 tools/export_exocortex_core.py`
 2. Review the generated tree at `_exports/exocortex-core/`.
 3. Confirm the export does not contain live journal history, raw corpus data, managed wiki content, local Obsidian state, or generated frontend artifacts.
 
@@ -16,7 +16,7 @@ Use this checklist before updating the public `exocortex-core` repository from t
 2. Run exported-repo tests:
    `cd _exports/exocortex-core && python3 -m unittest discover -s tests`
 3. Run a leak scan against the export:
-   `rg -n '/Users/|@gmail.com|@icloud.com|@me.com|sk-' _exports/exocortex-core`
+   `rg -n -g '!RELEASE_CHECKLIST.md' '/Users/|@[[:alnum:]._%+-]+\\.(gmail|icloud|me)\\.com|\\bsk-[A-Za-z0-9_-]+' _exports/exocortex-core`
 4. Spot-check demo assets and docs for machine-specific or personal content.
 
 ## Publish

@@ -2,6 +2,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -82,3 +83,24 @@ class BootstrapInitTests(unittest.TestCase):
         project_root = root / "domains" / "work" / "projects" / "alpha-beta"
         self.assertTrue((project_root / "README.md").exists())
         self.assertEqual((project_root / "STATE.md").read_text(encoding="utf-8"), "state Alpha Beta\n")
+
+    def test_install_wrappers_invokes_wrapper_installer(self) -> None:
+        temp_dir, root = self.make_root()
+        self.addCleanup(temp_dir.cleanup)
+
+        with patch("tools.bootstrap.init.subprocess.run") as run:
+            bootstrap.install_wrappers(root, None)
+
+        run.assert_called_once_with([str(root / "tools" / "wrappers" / "install.sh")], check=True)
+
+    def test_install_cron_invokes_cron_installer(self) -> None:
+        temp_dir, root = self.make_root()
+        self.addCleanup(temp_dir.cleanup)
+
+        (root / "tools" / "automations").mkdir(parents=True)
+        write(root / "tools" / "automations" / "install_cron.sh", "#!/bin/zsh\n")
+
+        with patch("tools.bootstrap.init.subprocess.run") as run:
+            bootstrap.install_cron(root)
+
+        run.assert_called_once_with([str(root / "tools" / "automations" / "install_cron.sh")], check=True)

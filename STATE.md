@@ -6,7 +6,7 @@
 
 ## Next Recommended Actions
 
-1. Run `python3 tools/bootstrap/init.py --install-wrappers`.
+1. Run `python3 tools/bootstrap/init.py --install-wrappers --install-cron`.
 2. Start one wrapped session from the repo root.
 3. Confirm that `journal/` receives artifacts.
 4. Add the first real domain project with `exocortex-init project ...`.

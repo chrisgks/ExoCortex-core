@@ -9,7 +9,7 @@ Current entrypoint:
 Typical usage:
 
 ```bash
-python3 tools/bootstrap/init.py --install-wrappers
+python3 tools/bootstrap/init.py --install-wrappers --install-cron
 python3 tools/bootstrap/init.py domain research
 python3 tools/bootstrap/init.py project work my-project
 ```

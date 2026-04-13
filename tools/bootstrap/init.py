@@ -254,6 +254,11 @@ def install_wrappers(root: Path, shell_file: str | None) -> None:
     subprocess.run(command, check=True)
 
 
+def install_cron(root: Path) -> None:
+    command = [str(root / "tools" / "automations" / "install_cron.sh")]
+    subprocess.run(command, check=True)
+
+
 def print_summary(label: str, summary: WriteSummary) -> None:
     print(label)
     print(f"  created: {len(summary.created)}")
@@ -269,6 +274,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--path", default=".", help="Path inside the target ExoCortex repo. Defaults to the current directory.")
     parser.add_argument("--force", action="store_true", help="Overwrite bootstrap-managed files when they already exist.")
     parser.add_argument("--install-wrappers", action="store_true", help="Run tools/wrappers/install.sh after repo initialization.")
+    parser.add_argument("--install-cron", action="store_true", help="Run tools/automations/install_cron.sh after repo initialization.")
     parser.add_argument("--shell-file", help="Shell file to pass to tools/wrappers/install.sh.")
     subparsers = parser.add_subparsers(dest="command")
 
@@ -294,9 +300,13 @@ def main() -> int:
         if args.install_wrappers or args.shell_file:
             install_wrappers(root, args.shell_file)
             print("Wrapper install complete.")
+        if args.install_cron:
+            install_cron(root)
+            print("Cron install complete.")
         print("Next steps:")
         print("  1. Run exocortex-doctor after opening a fresh shell.")
-        print("  2. Start a wrapped harness from the repo root or a narrower folder.")
+        print("  2. Install cron automation with --install-cron or tools/automations/install_cron.sh if you have not already.")
+        print("  3. Start a wrapped harness from the repo root or a narrower folder.")
         return 0
 
     if command == "domain":
