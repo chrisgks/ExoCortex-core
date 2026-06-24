@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exocortex"
+version = "0.1.0"
+description = "An outer loop for your mind: a local, plain-text, harness-agnostic system that captures the chaos before it evaporates, helps you turn it into shipped work, and learns what you should do next."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "ExoCortex" }]
+keywords = [
+    "cognitive-infrastructure",
+    "personal-knowledge-management",
+    "local-first",
+    "markdown",
+    "agentic-workflows",
+    "context-engineering",
+    "intelligence-amplification",
+    "reinforcement-learning",
+    "decision-systems",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Utilities",
+]
+
+# The core engine and every console command below run on the Python standard
+# library only — no third-party runtime dependencies. This keeps a fresh
+# install trivial and the engine portable.
+dependencies = []
+
+[project.optional-dependencies]
+# The optional web dashboard under tools/mission-control/ (run standalone,
+# not via a console_script).
+mission-control = [
+    "fastapi",
+    "pydantic",
+    "python-frontmatter",
+]
+
+# User-facing commands. Each maps to a worker's main(); these are the
+# install-friendly path. The existing zsh shims in tools/wrappers/bin/ keep
+# working unchanged — these entry points are the additional, pip-installable
+# surface.
+[project.scripts]
+exocortex-init = "tools.bootstrap.init:main"
+exocortex-health = "tools.workers.health_check:main"
+exocortex-review = "tools.workers.review:main"
+exocortex-ingest = "tools.workers.ingest_raw:main"
+exocortex-retrieve = "tools.workers.retrieve:main"
+exocortex-usage = "tools.workers.usage:main"
+exocortex-brief = "tools.workers.build_brief:main"
+exocortex-checkin = "tools.workers.reward_log:main"
+exocortex-ship = "tools.workers.ship_tracker:main"
+exocortex-next = "tools.workers.allocator:main"
+exocortex-doctor = "tools.wrappers.doctor:main"
+exocortex-hygiene = "tools.workers.context_hygiene:main"
+exocortex-reprocess = "tools.workers.reprocess_sessions:main"
+exocortex-wiki-map = "tools.workers.wiki_map_maintain:main"
+
+[tool.setuptools]
+# The engine is the code package only. A user's *instance* (journal/, raw/,
+# wiki/, domains/) is their own data dir and is never part of the package.
+packages = [
+    "tools",
+    "tools.bootstrap",
+    "tools.workers",
+    "tools.wrappers",
+]
+
+[tool.setuptools.package-data]
+"tools.bootstrap" = ["templates/**/*.md"]

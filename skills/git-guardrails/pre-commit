@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+#
+# ExoCortex git-guardrails pre-commit hook.
+#
+# Blocks committing personal / instance-private paths into a public-facing repo.
+# This is the leak defense for the public/private split:
+# a stranger-facing repo must never receive personal data.
+#
+# Adapted for ExoCortex from `git-guardrails-claude-code` by Matt Pocock —
+# https://github.com/mattpocock/skills (MIT License, Copyright (c) 2026 Matt Pocock).
+# The original blocks dangerous git *commands*; this blocks personal *paths*.
+#
+# Install:  ln -sf ../../skills/git-guardrails/pre-commit .git/hooks/pre-commit
+#           (or run skills/git-guardrails/install.sh)
+# Bypass (use only when you are certain):  git commit --no-verify
+# Override patterns:  set EXO_GUARDRAILS_EXTRA="regex1|regex2" before committing.
+
+set -euo pipefail
+
+# Personal / instance-private path patterns. Anchored at repo root.
+# A staged file blocks the commit if its path matches any of these.
+BLOCKED_PATTERNS=(
+  '^domains/'           # personal/work domain content
+  '^journal/'           # session + usage journals
+  '^raw/'               # raw inbox / unprocessed captures
+  '^exo/'               # instance-private working files
+  '^wiki/'              # personal knowledge wiki content
+  '(^|/)STATE\.md$'           # personal live state
+  '(^|/)MEMORY\.md$'          # personal memory index
+  '(^|/)\.env$'               # secrets
+  '(^|/)\.env\.'              # secrets variants
+  '\.pem$'                    # keys
+  '(^|/)secrets?(/|\.)'       # secrets dirs/files
+  'credentials'               # credential files
+)
+
+# Allow extra patterns from the environment (pipe-separated), without editing this file.
+# Works on bash 3.2 (macOS default) — no mapfile/readarray.
+if [[ -n "${EXO_GUARDRAILS_EXTRA:-}" ]]; then
+  _OLDIFS="$IFS"; IFS='|'
+  for _p in ${EXO_GUARDRAILS_EXTRA}; do
+    [[ -n "$_p" ]] && BLOCKED_PATTERNS+=("$_p")
+  done
+  IFS="$_OLDIFS"
+fi
+
+# Staged files (added/copied/modified/renamed). Newline-delimited; portable.
+violations=()
+while IFS= read -r f; do
+  [[ -z "$f" ]] && continue
+  for pat in "${BLOCKED_PATTERNS[@]}"; do
+    if [[ "$f" =~ $pat ]]; then
+      violations+=("$f  (matched: $pat)")
+      break
+    fi
+  done
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+if (( ${#violations[@]} > 0 )); then
+  echo "" >&2
+  echo "BLOCKED: git-guardrails refused this commit." >&2
+  echo "These staged paths look personal/instance-private and must not enter a public repo:" >&2
+  echo "" >&2
+  for v in "${violations[@]}"; do
+    echo "  - $v" >&2
+  done
+  echo "" >&2
+  echo "Fix: unstage them ->  git restore --staged <path>" >&2
+  echo "If a path is genuinely public and safe, narrow BLOCKED_PATTERNS or set EXO_GUARDRAILS_EXTRA." >&2
+  echo "Deliberate override (you accept the risk):  git commit --no-verify" >&2
+  echo "" >&2
+  exit 1
+fi
+
+exit 0

@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ExoCortex OG Card</title>
+    <style>
+      :root {
+        --bg: #07090d;
+        --panel: rgba(13, 17, 23, 0.82);
+        --panel-strong: rgba(17, 23, 32, 0.96);
+        --border: rgba(255, 255, 255, 0.1);
+        --muted: #8a94a7;
+        --text: #f5f7fb;
+        --cyan: #66fcf1;
+        --magenta: #ff007f;
+        --amber: #f2a900;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at top left, rgba(102, 252, 241, 0.16), transparent 34%),
+          radial-gradient(circle at top right, rgba(255, 0, 127, 0.2), transparent 36%),
+          linear-gradient(160deg, #06080c 0%, #0b1017 45%, #0d121a 100%);
+        color: var(--text);
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      body::before,
+      body::after {
+        content: "";
+        position: absolute;
+        width: 420px;
+        height: 420px;
+        border-radius: 999px;
+        filter: blur(80px);
+        opacity: 0.18;
+      }
+
+      body::before {
+        top: -180px;
+        right: -120px;
+        background: var(--magenta);
+      }
+
+      body::after {
+        bottom: -200px;
+        left: -120px;
+        background: var(--cyan);
+      }
+
+      .frame {
+        position: relative;
+        width: 1200px;
+        height: 630px;
+        padding: 36px;
+      }
+
+      .card {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1.08fr 0.92fr;
+        gap: 28px;
+        width: 100%;
+        height: 100%;
+        padding: 34px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 32px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02)),
+          rgba(8, 10, 15, 0.72);
+        box-shadow:
+          0 28px 70px rgba(0, 0, 0, 0.45),
+          inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        overflow: hidden;
+      }
+
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 78%);
+        pointer-events: none;
+      }
+
+      .left {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-width: 0;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 22px;
+        color: var(--cyan);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--cyan), #9efdf6);
+        box-shadow: 0 0 18px rgba(102, 252, 241, 0.75);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 66px;
+        line-height: 0.94;
+        letter-spacing: -0.055em;
+      }
+
+      .subhead {
+        margin: 18px 0 0;
+        max-width: 560px;
+        color: #d5dcea;
+        font-size: 25px;
+        line-height: 1.28;
+        letter-spacing: -0.02em;
+      }
+
+      .pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 26px;
+      }
+
+      .pill {
+        padding: 10px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.045);
+        color: #dce3f0;
+        font-size: 12px;
+        font-weight: 650;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .pill.emph {
+        border-color: rgba(102, 252, 241, 0.32);
+        box-shadow: inset 0 0 0 1px rgba(102, 252, 241, 0.08);
+        color: var(--cyan);
+      }
+
+      .bottom {
+        display: grid;
+        grid-template-columns: 1.02fr 0.98fr;
+        gap: 18px;
+      }
+
+      .terminal,
+      .flow {
+        padding: 18px 18px 16px;
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        background: var(--panel);
+        backdrop-filter: blur(18px);
+      }
+
+      .label {
+        margin-bottom: 12px;
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+      }
+
+      pre {
+        margin: 0;
+        color: #dbe7f4;
+        font-size: 15px;
+        line-height: 1.58;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        white-space: pre-wrap;
+      }
+
+      .flow-items {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .step {
+        min-height: 100px;
+        padding: 12px 12px 10px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+      }
+
+      .step strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+        line-height: 1.2;
+      }
+
+      .step span {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.45;
+      }
+
+      .right {
+        position: relative;
+        min-width: 0;
+      }
+
+      .shot-wrap {
+        position: absolute;
+        inset: 32px 0 20px 12px;
+        border-radius: 28px;
+        background:
+          linear-gradient(135deg, rgba(102, 252, 241, 0.12), transparent 44%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+          rgba(10, 14, 20, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+        box-shadow:
+          0 18px 40px rgba(0, 0, 0, 0.34),
+          inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      }
+
+      .shot-wrap::before {
+        content: "Mission Control";
+        position: absolute;
+        top: 16px;
+        left: 18px;
+        z-index: 2;
+        color: rgba(255, 255, 255, 0.72);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .shot-wrap::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(180deg, rgba(7, 9, 13, 0.04), rgba(7, 9, 13, 0.18)),
+          linear-gradient(135deg, rgba(255, 0, 127, 0.14), transparent 55%);
+        pointer-events: none;
+      }
+
+      .shot {
+        position: absolute;
+        inset: 44px 16px 16px;
+        border-radius: 22px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .shot img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: top center;
+        transform: scale(1.02);
+      }
+
+      .legend {
+        position: absolute;
+        right: 24px;
+        bottom: 18px;
+        display: flex;
+        gap: 10px;
+        z-index: 2;
+      }
+
+      .legend span {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(8, 11, 16, 0.76);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #dce4ef;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+      }
+
+      .legend span:nth-child(2) {
+        color: var(--cyan);
+      }
+
+      .legend span:nth-child(3) {
+        color: var(--amber);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame">
+      <div class="card">
+        <div class="grid"></div>
+        <section class="left">
+          <div>
+            <div class="eyebrow">ExoCortex</div>
+            <h1>Stateless chat is the wrong abstraction.</h1>
+            <p class="subhead">
+              ExoCortex turns folders, notes, and AI sessions into a local-first operating system for context-aware work.
+            </p>
+            <div class="pills">
+              <span class="pill emph">Markdown-first</span>
+              <span class="pill">Context from folders</span>
+              <span class="pill">Journals every run</span>
+              <span class="pill">Compounding memory</span>
+            </div>
+          </div>
+
+          <div class="bottom">
+            <div class="terminal">
+              <div class="label">One normal session</div>
+              <pre>cd domains/work/projects/acme
+codex
+
++ context packet assembled
++ transcript captured
++ journal + candidates written</pre>
+            </div>
+
+            <div class="flow">
+              <div class="label">Compounding loop</div>
+              <div class="flow-items">
+                <div class="step">
+                  <strong>Start in any folder</strong>
+                  <span>Use the filesystem as the interface.</span>
+                </div>
+                <div class="step">
+                  <strong>Launch wrapped harness</strong>
+                  <span>Load agent, mode, and local context automatically.</span>
+                </div>
+                <div class="step">
+                  <strong>Promote durable signal</strong>
+                  <span>Carry memory, workflows, and rules into future sessions.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="right">
+          <div class="shot-wrap">
+            <div class="shot">
+              <img src="mission-control.png" alt="Mission Control screenshot" />
+            </div>
+            <div class="legend">
+              <span>Local-first</span>
+              <span>Inspectable</span>
+              <span>Experimental</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </body>
+</html>

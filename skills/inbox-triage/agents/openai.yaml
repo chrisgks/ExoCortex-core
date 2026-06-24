@@ -1,0 +1,4 @@
+version: 1
+display_name: Inbox Triage
+short_description: Classify and move raw inbox files into the right pipeline.
+default_prompt: Triage the files currently sitting in raw/inbox, move them into the right destinations, and summarize the outcome.

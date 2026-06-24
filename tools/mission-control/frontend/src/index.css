@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@theme {
+  --color-deep-space: #0b0c10;
+  --color-neon-cyan: #66fcf1;
+  --color-cyber-magenta: #ff007f;
+  --color-muted-amber: #f2a900;
+}
+
+:root {
+  background-color: var(--color-deep-space);
+  color: white;
+  font-family: 'Inter', sans-serif;
+  overflow: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Futuristic Minimalist Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(102, 252, 241, 0.2);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 252, 241, 0.5);
+  box-shadow: 0 0 10px rgba(102, 252, 241, 0.5);
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(102, 252, 241, 0.2) rgba(255, 255, 255, 0.02);
+}

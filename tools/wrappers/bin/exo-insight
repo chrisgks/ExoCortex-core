@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+import os
+import re
+import sys
+from pathlib import Path
+import datetime
+
+# Setup paths
+ROOT = Path(__file__).parent.parent.parent.parent
+summaries_dir = ROOT / "journal" / "summarised"
+health_path = ROOT / "system" / "HEALTH STATE.md"
+
+def get_color(score):
+    if score > 0.6: return "\033[91m" # Red/Magenta
+    if score > 0.3: return "\033[93m" # Yellow
+    return "\033[92m" # Green
+
+def print_header(text):
+    print(f"\n\033[1m\033[96m=== {text} ===\033[0m")
+
+def run_insight():
+    print_header("EXOCORTEX COGNITIVE INSIGHTS")
+
+    # 1. Health Overview
+    if health_path.exists():
+        content = health_path.read_text()
+        energy = re.search(r"energy_now: (.*)", content)
+        readiness = re.search(r"cognitive_readiness_now: (.*)", content)
+        print(f"Current Readiness: {readiness.group(1) if readiness else 'Unknown'}")
+        print(f"Current Energy:    {energy.group(1) if energy else 'Unknown'}")
+
+    # 2. Friction Heatmap (Terminal Version)
+    print_header("PROJECT FRICTION HEATMAP")
+    friction_map = {}
+    if summaries_dir.exists():
+        for file in sorted(summaries_dir.glob("*.md"), reverse=True)[:10]:
+            content = file.read_text()
+            matches = re.findall(r"Session in `.*?/(domains/.*?)`", content)
+            for match in matches:
+                friction_map[match] = friction_map.get(match, 0) + 0.2
+                if "None extracted" in content:
+                    friction_map[match] += 0.3
+
+    if not friction_map:
+        print("No recent session data found.")
+    for proj, score in sorted(friction_map.items(), key=lambda x: x[1], reverse=True):
+        color = get_color(score)
+        bar = "█" * int(score * 10)
+        print(f"{color}{proj:<30} {bar:<10} ({(score*100):.0f}%) \033[0m")
+
+    # 3. Peak Performance Window
+    print_header("IDENTITY AUDIT")
+    hourly_output = {}
+    if summaries_dir.exists():
+        for file in summaries_dir.glob("*.md"):
+            content = file.read_text()
+            blocks = content.split("## ")
+            for block in blocks[1:]:
+                time_match = re.search(r"(\d{2}):\d{2}:\d{2}", block)
+                if time_match:
+                    hour = int(time_match.group(1))
+                    decisions = len(re.findall(r"- ", block.split("### Decisions")[1].split("###")[0])) if "### Decisions" in block else 0
+                    hourly_output[hour] = hourly_output.get(hour, 0) + decisions
+    
+    if hourly_output:
+        peak_hour = max(hourly_output, key=hourly_output.get)
+        print(f"Empirical Peak Window: {peak_hour:02}:00 - {(peak_hour+1):02}:00")
+        print(f"Insight: Your productivity is highest in the {'morning' if peak_hour < 12 else 'afternoon/evening'}.")
+    else:
+        print("Not enough data for identity audit.")
+
+    print("\n\033[90mRun 'npm run dev' in tools/mission-control/frontend for full visual report.\033[0m\n")
+
+if __name__ == "__main__":
+    run_insight()
