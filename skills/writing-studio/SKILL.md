@@ -6,33 +6,56 @@ description: Turn a rough input — a note, a draft, a chat, or a captured seed 
 # Writing Studio
 
 Externalizing — turning a thought into a finished piece someone can read — is a
-core part of the loop. This skill is the generic slot for that drafting work: it
-takes rough material, runs a staged pass into a draft, and hands back to you.
-Adapt the steps, the structure, and the standards to your own writing.
+core part of the loop. This skill runs a staged pass from rough material to a
+draft you can edit and publish. The process below is a sensible default; adapt
+it to your own writing.
 
-## When to use
+## When to use / not to use
 
-- You point at a source (a note, a draft, a chat, or a Ship-tracker seed) and want a draft.
-- The goal is a publishable piece, or a step toward one.
+- Use it when you point at a source (a note, a draft, a chat, or a Ship-tracker seed) and want a draft.
+- Don't use it to consolidate a lot of scattered work into proposals — use **synthesis-studio**. For a plain recap, summarize inline.
 
-## When not to use
+## The process
 
-- Consolidating a lot of scattered work into proposals → use **synthesis-studio**.
-- You just want a plain summary → summarize inline.
+### 1. Find the point
+Before drafting, write the single thing the piece is saying in one plain
+sentence. If you can't, you don't have the piece yet — keep reading the source or
+talking it through until the point is clear. Note the form (post, essay, doc,
+thread), the audience, and roughly how long it should be.
 
-## Steps (adapt to your own process)
+### 2. Outline
+List the beats that carry the reader from not-knowing to the point: what they
+need first, what follows, what to end on. Order matters more than wording here.
+Cut any beat that doesn't move toward the point.
 
-1. **Gather** — read the source; note the goal, the form, and the audience.
-2. **Draft** — write a first draft from the source material, in your own words.
-3. **Check** — read it for clarity and correctness; mark anything unverified.
-4. **Hand back** — you edit and decide whether to publish. The skill proposes; it never publishes for you.
+### 3. Draft
+Write it through once, fast, from the outline and the source — don't polish while
+drafting. Leave `[TODO]` or `[VERIFY]` markers where a fact, quote, or number
+needs checking, instead of stopping to look it up.
+
+### 4. Revise
+Read it as the reader, not the writer. Cut what doesn't earn its place. Make the
+opening do real work — many first paragraphs can simply be deleted. Replace vague
+claims with concrete ones. Resolve every `[VERIFY]`: check each fact, quote, and
+number, and remove or fix anything you can't stand behind.
+
+### 5. Hand back
+Show the draft plus a short note on what's strong, weak, and still unresolved.
+You edit and decide whether to publish. The skill proposes; it never publishes
+for you.
+
+### 6. A fresh read
+For anything going public, have a fresh reader — a new session, or another
+person — read only the draft, not the source, and flag where it's unclear, slow,
+or unconvincing. Someone who didn't write it catches what the writer can't see.
 
 ## The Ship tracker hook
 
 `shape <id>` hands a captured seed to this skill to become a draft and marks the
-item shaped. Fill in the rest with how you actually write.
+item shaped.
 
 ## Guardrails
 
 - Human-in-loop: propose, don't publish.
+- Don't invent facts; mark anything unverified and check it before it ships.
 - If the material involves other people or an employer, redact sensitive details first.
