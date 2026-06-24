@@ -67,6 +67,8 @@ The trick is that behavior is **composed, not stored**. There's no zoo of named 
   <img src="docs/assets/exocortex-compose.gif" alt="The same five dials — scope, role, mode, rules, skill — settle to different values and synthesize a different agent per task" width="760">
 </p>
 
+It also keeps kinds of knowledge apart. A decision you made, a condition that's true today, and a standing rule are stored as different types, because they age and apply differently — a rule holds until you change it, a condition goes stale in a day. That typing is what lets the system load the right thing at the right moment and act on it safely, instead of dropping one undifferentiated pile of notes into every prompt. It's the line between a system that knows what it knows and a blob you have to re-read.
+
 ## What you can do with it
 
 - Catch every idea the moment it lands, so nothing dies in a chat log overnight.
