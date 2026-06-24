@@ -59,7 +59,13 @@ Up close, one session runs the whole pipeline end to end — plain files in, dur
   <img src="docs/assets/exocortex-pipeline.gif" alt="One session end to end: work, transcript, candidates, promote to durable layers, synthesize, brief — sharper every revolution" width="760">
 </p>
 
-Underneath, it runs on a small, fixed set of roles: chief-of-staff, planning, research, builder, reviewer, knowledge-steward, life-systems. Most real work breaks down into the same handful of functions whatever the domain, so a new capability is just a few of these roles composed with your context, your rules, and the right skill. The set stays small while what it can do keeps growing.
+Underneath, it runs on a small, fixed set of roles: chief-of-staff, planning, research, builder, reviewer, knowledge-steward, life-systems. Most real work breaks down into the same handful of functions whatever the domain.
+
+The trick is that behavior is **composed, not stored**. There's no zoo of named agents to maintain — just a few stable parts that combine on demand: `scope × role × mode × rules × skill`. Where you are sets the scope, the role sets the stance, your rules set the guardrails, and the task selects the skill. Those dials settle to different values and synthesize the right agent for the moment — a PR reviewer, your essayist, a planner for a launch — then it dissolves when the task is done. The parts stay; the agent is made fresh each time. The set stays small while what it can do keeps growing.
+
+<p align="center">
+  <img src="docs/assets/exocortex-compose.gif" alt="The same five dials — scope, role, mode, rules, skill — settle to different values and synthesize a different agent per task" width="760">
+</p>
 
 ## What you can do with it
 
