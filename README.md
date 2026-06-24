@@ -43,6 +43,10 @@ flowchart LR
     E -. sharper .-> A
 ```
 
+<p align="center">
+  <img src="docs/assets/exocortex-loop-animated.gif" alt="The outer loop: capture, allocate, act, reward, synthesize — sharper every revolution" width="760">
+</p>
+
 Underneath, it runs on a small, fixed set of roles: chief-of-staff, planning, research, builder, reviewer, knowledge-steward, life-systems. Most real work breaks down into the same handful of functions whatever the domain, so a new capability is just a few of these roles composed with your context, your rules, and the right skill. The set stays small while what it can do keeps growing.
 
 ## What you can do with it
@@ -52,6 +56,40 @@ Underneath, it runs on a small, fixed set of roles: chief-of-staff, planning, re
 - Ask what to do next and get a real answer, drawn from how you actually work.
 - Turn the pile of half-finished things into finished, shipped work.
 - Keep all of it in plain files you can read, edit, delete, and carry to any model.
+
+## See it work
+
+Five parts of the loop, each a real command and its real output — not invented CLI text.
+
+**The allocator decides.** It scores the moves competing for your attention and shows the math behind the pick. This is the part that makes ExoCortex an allocator, not a notes app: where to aim next is computed, not guessed.
+
+<p align="center">
+  <img src="docs/assets/exocortex-allocator.gif" alt="exocortex-next --why scoring competing moves with a breakdown" width="760">
+</p>
+
+**The reward loop closes.** Every session ends with one rating, written as a labeled row — state, action, reward. That's a training set for the allocation policy, accumulating from day one.
+
+<p align="center">
+  <img src="docs/assets/exocortex-reward.gif" alt="The session-close check-in appending a row to reward-log.jsonl" width="760">
+</p>
+
+**Capture to ship.** A raw thread is tracked from captured to shaped to shipped, and surfaces in your brief along the way, so nothing finished quietly gets lost.
+
+<p align="center">
+  <img src="docs/assets/exocortex-ship.gif" alt="The ship tracker advancing a thread from captured to shipped" width="760">
+</p>
+
+**Triaged at scale.** Hundreds of pending candidates get expired, surfaced, and closed in a single pass, so the backlog stays a tool instead of a guilt pile.
+
+<p align="center">
+  <img src="docs/assets/exocortex-triage.gif" alt="exocortex-review triage clearing a candidate backlog" width="760">
+</p>
+
+**It synthesizes itself.** Raw sessions roll up into weekly and monthly memory on their own, so the system stays legible as it grows.
+
+<p align="center">
+  <img src="docs/assets/exocortex-synthesis.gif" alt="Raw sessions rolling up into a weekly synthesis" width="760">
+</p>
 
 ## How you use it
 
