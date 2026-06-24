@@ -16,10 +16,13 @@ from __future__ import annotations
 
 import io
 import json
-import sys
+import os
+import select
+import time
 import tempfile
 import unittest
 from pathlib import Path
+import sys
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -223,6 +226,128 @@ class InteractiveCheckinTests(unittest.TestCase):
             ]
             self.assertEqual(rewards[0]["energy"], 5)
             self.assertEqual(rewards[0]["juice"], "built the check-in")
+
+
+def _drive_checkin_over_pty(root: Path, *, rating: str, juice: str, drain_fd0: bool) -> float:
+    """Run ``run_checkin`` in a forked child attached to a pseudo-terminal and
+    play the user from the parent. Returns the wall-clock seconds the child
+    took (so a regression that instantly skips both prompts is visible as a
+    near-zero duration as well as a lost row).
+
+    When ``drain_fd0`` is set the child first points fd 0 at /dev/null — the
+    exact end-state after the postprocess worker's summarizer subprocesses have
+    consumed the inherited stdin. The check-in must still reach the real user by
+    opening /dev/tty.
+    """
+    import pty
+
+    pid, master_fd = pty.fork()  # child gets the pty slave as its controlling tty
+    if pid == 0:  # child: the wrapped session's check-in
+        try:
+            # pty.fork dup'd the slave onto fds 0/1/2; rebind Python's stream
+            # objects to those raw fds so prompts traverse the real terminal even
+            # when the test runner (pytest) has swapped sys.stderr for a capture
+            # buffer. This mirrors the production path where output is fd 2.
+            sys.stdout = os.fdopen(1, "w", buffering=1)
+            sys.stderr = os.fdopen(2, "w", buffering=1)
+            if drain_fd0:
+                devnull = os.open(os.devnull, os.O_RDONLY)
+                os.dup2(devnull, 0)
+                os.close(devnull)
+            # Defaults mirror the real wrapper call: no stdin override, is_tty true.
+            reward_log.run_checkin(
+                root,
+                session_id="pty-1",
+                claude_session_id=None,
+                agent="builder",
+                scope="root",
+                is_tty=True,
+            )
+        finally:
+            os._exit(0)
+
+    started = time.monotonic()
+    buf = b""
+    sent_rating = sent_juice = False
+    deadline = time.time() + 12
+    while time.time() < deadline:
+        r, _, _ = select.select([master_fd], [], [], 0.2)
+        if master_fd in r:
+            try:
+                data = os.read(master_fd, 4096)
+            except OSError:
+                break
+            if not data:
+                break
+            buf += data
+        if not sent_rating and b"rate this session" in buf:
+            os.write(master_fd, rating.encode() + b"\n")
+            sent_rating = True
+        if not sent_juice and b"what stood out" in buf:
+            os.write(master_fd, juice.encode() + b"\n")
+            sent_juice = True
+        if b"noted" in buf or b"logged" in buf:
+            break
+    elapsed = time.monotonic() - started
+    try:
+        os.waitpid(pid, 0)
+    except OSError:
+        pass
+    try:
+        os.close(master_fd)
+    except OSError:
+        pass
+    return elapsed
+
+
+@unittest.skipUnless(hasattr(os, "fork"), "requires fork/pty")
+class PtyCheckinRegressionTests(unittest.TestCase):
+    """The session-close check-in runs *after* the postprocess worker, whose
+    summarizer subprocesses inherit and drain fd 0. The prompt must still reach
+    the real terminal (via /dev/tty) and capture the user's answer — it must not
+    skip instantly. This pins the fix for the "it was a good session" loss.
+    """
+
+    def setUp(self) -> None:
+        # pty.fork gives the child its own controlling terminal, so the test
+        # does not need the *parent* to have a tty. Only skip where the sandbox
+        # forbids allocating a pty at all.
+        import pty
+
+        try:
+            pid, fd = pty.fork()
+        except OSError as exc:
+            self.skipTest(f"pty unavailable: {exc}")
+        if pid == 0:
+            os._exit(0)
+        os.waitpid(pid, 0)
+        os.close(fd)
+
+    def _last_row(self, root: Path) -> dict:
+        path = root / reward_log.REWARD_LOG_PATH
+        rows = [json.loads(l) for l in path.read_text().splitlines() if l.strip()]
+        self.assertTrue(rows, "check-in wrote no reward row at all")
+        return rows[-1]
+
+    def test_captures_answer_even_after_fd0_is_drained(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            _drive_checkin_over_pty(
+                root, rating="3", juice="it was a good session", drain_fd0=True
+            )
+            row = self._last_row(root)
+            self.assertEqual(row["energy"], 3)
+            self.assertEqual(row["juice"], "it was a good session")
+
+    def test_captures_answer_on_a_clean_tty(self) -> None:
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name)
+            _drive_checkin_over_pty(
+                root, rating="5", juice="shipped the fix", drain_fd0=False
+            )
+            row = self._last_row(root)
+            self.assertEqual(row["energy"], 5)
+            self.assertEqual(row["juice"], "shipped the fix")
 
 
 class BriefPendingCheckinTests(unittest.TestCase):

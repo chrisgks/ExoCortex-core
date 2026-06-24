@@ -241,6 +241,21 @@ def _read_line_with_timeout(
     return line.rstrip("\n")
 
 
+def _open_controlling_tty() -> TextIO | None:
+    """A fresh read handle on the controlling terminal, or ``None``.
+
+    The check-in runs *after* the postprocess worker, whose summarizer
+    subprocesses inherit the wrapper's stdin (fd 0) and read from it — leaving
+    fd 0 drained or at EOF by the time we prompt. Opening ``/dev/tty`` gives an
+    independent handle to the real terminal that those subprocesses cannot have
+    disturbed, so the prompt waits for the user instead of skipping instantly.
+    """
+    try:
+        return open("/dev/tty", "r", encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+
 def run_checkin(
     root: Path,
     *,
@@ -263,8 +278,16 @@ def run_checkin(
     Never raises, never blocks indefinitely, never nags. A single Enter clears
     each prompt; a non-tty session is auto-deferred without any keystroke.
     """
-    stdin = stdin if stdin is not None else sys.stdin
     output = output if output is not None else sys.stderr
+
+    # When the caller injects a stream (tests, pipes) honour it verbatim. With no
+    # override, read the controlling terminal directly via /dev/tty rather than
+    # the inherited fd 0, which the postprocess worker's summarizer subprocesses
+    # may have drained or closed. Fall back to sys.stdin if /dev/tty is absent.
+    tty_handle: TextIO | None = None
+    if stdin is None:
+        tty_handle = _open_controlling_tty()
+        stdin = tty_handle if tty_handle is not None else sys.stdin
 
     if is_tty is None:
         try:
@@ -273,6 +296,8 @@ def run_checkin(
             is_tty = False
 
     if not is_tty:
+        if tty_handle is not None:
+            tty_handle.close()
         record_pending(
             root,
             session_id=session_id,
@@ -298,8 +323,12 @@ def run_checkin(
             pass
         return _read_line_with_timeout(stdin, timeout, is_real_tty)
 
-    energy = parse_energy(ask(ENERGY_PROMPT))
-    juice = parse_juice(ask(JUICE_PROMPT))
+    try:
+        energy = parse_energy(ask(ENERGY_PROMPT))
+        juice = parse_juice(ask(JUICE_PROMPT))
+    finally:
+        if tty_handle is not None:
+            tty_handle.close()
 
     append_reward(
         root,

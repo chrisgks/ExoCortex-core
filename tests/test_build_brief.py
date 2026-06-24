@@ -97,6 +97,25 @@ class BuildBriefWriteTest(unittest.TestCase):
         self.assertTrue(out.exists())
         self.assertIn("# ExoCortex Brief", out.read_text(encoding="utf-8"))
 
+    def test_write_is_atomic_no_partial_reads(self) -> None:
+        # A new session's SessionStart hook may read brief.md exactly while a
+        # closing session rewrites it. The write must be atomic (temp + replace)
+        # so a concurrent reader sees either the old or the new file in full,
+        # never an empty/truncated one. We assert no stray temp file lingers and
+        # the published file is always complete.
+        import os
+
+        build_brief.write_brief(self.root)
+        path = self.root.resolve() / "journal" / "inbox" / "brief.md"
+        for _ in range(8):
+            build_brief.write_brief(self.root)
+            body = path.read_text(encoding="utf-8")
+            self.assertTrue(body.strip(), "brief.md was observed empty mid-write")
+            self.assertIn("# ExoCortex Brief", body)
+        # No leftover temp artifact from the atomic swap.
+        leftovers = [p.name for p in path.parent.iterdir() if p.name.startswith(".brief")]
+        self.assertEqual(leftovers, [], f"atomic-write temp left behind: {leftovers}")
+
     def test_idempotent_only_writes_the_brief(self) -> None:
         # Snapshot every file except the Brief, regenerate twice, assert nothing
         # else changed and the Brief itself is stable across runs.
@@ -185,6 +204,50 @@ class WrapperPreloadTest(unittest.TestCase):
             context = w.collect_context(root, root, "chief-of-staff", "conversation")
             candidates = w.authoritative_preload_candidates(context)
             self.assertNotIn("journal/inbox/brief.md", candidates)
+
+
+class StartupDigestResilienceTest(unittest.TestCase):
+    """The SessionStart digest must never silently vanish when brief.md is
+    missing/empty/partial — the hook renders the brief live instead so the user
+    always sees the ExoCortex brief at session open (not just other tools)."""
+
+    def _hook_module(self):
+        import importlib.util
+
+        sys.path.insert(0, str(REPO_ROOT / "tools" / "wrappers"))
+        sys.path.insert(0, str(REPO_ROOT))
+        spec = importlib.util.spec_from_file_location(
+            "hook_context", REPO_ROOT / "tools" / "wrappers" / "hook-context.py"
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_missing_brief_file_falls_back_to_live_render(self) -> None:
+        import tempfile
+
+        hc = self._hook_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            minimal_repo(root)
+            # No brief.md on disk at all.
+            self.assertFalse((root / "journal" / "inbox" / "brief.md").exists())
+            text = hc._load_brief_text(root)
+            self.assertTrue(text and "ExoCortex Brief" in text)
+            digest = hc.render_brief_digest(root)
+            self.assertTrue(digest and "ExoCortex Brief" in digest)
+
+    def test_empty_brief_file_falls_back_to_live_render(self) -> None:
+        import tempfile
+
+        hc = self._hook_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            minimal_repo(root)
+            # Simulate a mid-rewrite empty read.
+            write(root / "journal" / "inbox" / "brief.md", "")
+            digest = hc.render_brief_digest(root)
+            self.assertTrue(digest and "ExoCortex Brief" in digest)
 
 
 if __name__ == "__main__":

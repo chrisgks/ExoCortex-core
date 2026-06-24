@@ -942,6 +942,7 @@ def call_claude_summarizer(
     result = subprocess.run(
         command,
         cwd=str(root),
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         check=True,
@@ -1006,6 +1007,7 @@ def call_codex_structured(
         result = subprocess.run(
             command,
             cwd=str(root),
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             check=True,
@@ -2125,7 +2127,9 @@ def call_claude_period_synthesizer(root: Path, level: str, period_label: str, in
         json.dumps(period_synthesis_schema()),
         prompt,
     ]
-    result = subprocess.run(command, cwd=str(root), capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        command, cwd=str(root), stdin=subprocess.DEVNULL, capture_output=True, text=True, check=True
+    )
     return _dedupe_period_axes(_extract_claude_schema_payload(json.loads(result.stdout)))
 
 
@@ -2413,6 +2417,7 @@ def call_claude_state_updater(
     result = subprocess.run(
         [real_claude, "-p", prompt],
         cwd=str(root),
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         check=True,
@@ -2599,6 +2604,19 @@ def main() -> int:
 
     provider = os.environ.get("EXOCORTEX_SUMMARIZER_PROVIDER", "claude").strip().lower()
     update_project_state(root, manifest, data, provider)
+
+    # Refresh the startup Brief so the next session opens on current state. The
+    # Brief is otherwise never regenerated, so it would show stale data — or, if
+    # absent, nothing at all. Do it here (a background phase) rather than at
+    # session start, where its multi-second render risks the hook's timeout.
+    # Atomic write keeps a concurrently-opening session from reading it empty.
+    emit_progress("brief", "refreshing startup brief")
+    try:
+        from tools.workers import build_brief
+
+        build_brief.write_brief(root)
+    except Exception as exc:  # pragma: no cover - postprocess must never break
+        print(f"[process_session] brief refresh failed: {exc}", file=sys.stderr)
 
     return 0
 

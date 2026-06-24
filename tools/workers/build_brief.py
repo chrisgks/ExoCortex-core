@@ -23,6 +23,7 @@ other file. Regeneration is cheap and idempotent.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -412,7 +413,13 @@ def write_brief(root: Path) -> Path:
     root = root.resolve()
     path = root / BRIEF_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(render_brief(root), encoding="utf-8")
+    # Atomic write: render to a temp file in the same dir, then os.replace so a
+    # concurrent reader (a new session's SessionStart hook) never observes a
+    # half-written or empty brief — which would render an empty startup digest.
+    content = render_brief(root)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(content, encoding="utf-8")
+    os.replace(tmp, path)
     return path
 
 

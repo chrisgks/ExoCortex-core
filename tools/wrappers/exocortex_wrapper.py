@@ -1849,6 +1849,7 @@ def run_session_worker(
         [sys.executable, str(worker), str(manifest_path)],
         cwd=str(root),
         env=env,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,

@@ -78,6 +78,30 @@ def _num(text: str) -> str:
     return m.group(0) if m else ""
 
 
+def _load_brief_text(root: Path) -> str | None:
+    """The Brief text, never silently empty.
+
+    Reads ``journal/inbox/brief.md`` but falls back to rendering the Brief live
+    when the file is missing, empty, or caught mid-rewrite by a concurrent
+    session close. Without this fallback a transient empty read makes the startup
+    digest vanish, leaving only other tools' output on screen.
+    """
+    path = root / BRIEF_FILE
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        text = ""
+    if text.strip():
+        return text
+    # File absent/empty/partial — build it in-memory so the brief still shows.
+    try:
+        from tools.workers import build_brief
+
+        return build_brief.render_brief(root)
+    except Exception:
+        return None
+
+
 def render_brief_digest(root: Path) -> str | None:
     """A tight, action-first digest of the Brief. None if no usable brief.
 
@@ -86,12 +110,8 @@ def render_brief_digest(root: Path) -> str | None:
     maintenance collapsed to a single line. The verbose system hygiene lives in
     the full brief, not here.
     """
-    path = root / BRIEF_FILE
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    if not text.strip():
+    text = _load_brief_text(root)
+    if not text or not text.strip():
         return None
 
     gen = ""
