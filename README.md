@@ -29,6 +29,12 @@ A feed removes all the effort, and you learn nothing. An assistant that thinks f
   <img src="docs/assets/exocortex-demo.gif" alt="A session opening: ExoCortex hands you the brief and the next best move" width="760">
 </p>
 
+The biggest tax it kills is re-orientation — the time you burn reloading a project into your head before you can even start.
+
+<p align="center">
+  <img src="docs/assets/exocortex-reorientation.gif" alt="Cold start crawls for ~40 minutes of reloading context; with ExoCortex the context is already composed and you start now" width="760">
+</p>
+
 ## How it works
 
 Your AI is brilliant inside a single session and forgets you the moment the chat closes. ExoCortex runs the loop around it, in five stages: it works out what deserves your attention next, composes the right context for it, captures what happened while you worked, keeps what's worth keeping, and helps you ship it. Then it comes back around a little sharper.
@@ -45,6 +51,12 @@ flowchart LR
 
 <p align="center">
   <img src="docs/assets/exocortex-loop-animated.gif" alt="The outer loop: capture, allocate, act, reward, synthesize — sharper every revolution" width="760">
+</p>
+
+Up close, one session runs the whole pipeline end to end — plain files in, durable memory out, and the next session opens already oriented.
+
+<p align="center">
+  <img src="docs/assets/exocortex-pipeline.gif" alt="One session end to end: work, transcript, candidates, promote to durable layers, synthesize, brief — sharper every revolution" width="760">
 </p>
 
 Underneath, it runs on a small, fixed set of roles: chief-of-staff, planning, research, builder, reviewer, knowledge-steward, life-systems. Most real work breaks down into the same handful of functions whatever the domain, so a new capability is just a few of these roles composed with your context, your rules, and the right skill. The set stays small while what it can do keeps growing.

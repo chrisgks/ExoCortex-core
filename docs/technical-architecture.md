@@ -88,6 +88,10 @@ A fresh instance comes from `exocortex-init instance ~/my-exo`. It scaffolds a c
 
 When you launch a wrapped session, ExoCortex builds the context before the AI starts. It loads the contract files for your scope, the same files from every ancestor scope up to root, and the brief.
 
+<p align="center">
+  <img src="assets/exocortex-context.gif" alt="Scoped source files flowing into a single composed preload before the session starts" width="760">
+</p>
+
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'primaryColor':'#F4EFE3','primaryTextColor':'#1B1A17','primaryBorderColor':'#1B1A17','lineColor':'#C8772E'}}}%%
 flowchart TB
@@ -136,6 +140,10 @@ Engelbart told us to augment human intellect and to bootstrap, to get better at 
 This rests on real ground. Dopamine in the brain behaves like a reinforcement-learning signal, a temporal-difference reward-prediction error (Schultz, Dayan, Montague, 1997). ExoCortex closes an outer learning loop around the loop the brain already runs inside. The artifact requirement is what keeps it honest: rewarding raw dopamine would build a slot machine, so the reward is conditioned on finished output.
 
 ### The decision problem, stated
+
+<p align="center">
+  <img src="assets/exocortex-learning.gif" alt="The allocation policy as a contextual bandit: value estimates separate and average reward climbs as it learns from reward" width="760">
+</p>
 
 Concretely, this is a Markov decision process. At each step the system sees a **state** $s_t$ — your context: open loops, staleness, deadlines, the energy you reported, what's captured but unshipped. It takes an **action** $a_t$ — what to surface or suggest next. A **policy** $\pi(a_t \mid s_t)$ maps state to action, and that policy is the thing being learned. The **reward** is the dopamine signal gated on output:
 
