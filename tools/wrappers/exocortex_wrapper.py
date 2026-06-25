@@ -1141,6 +1141,7 @@ def build_context_prompt(context: Context, preload_report: PreloadReport | None 
         f"- Scope: level={context.level}; agent={context.active_agent}; mode={context.active_mode}; cwd={context.cwd}",
         "- Authority: this bootstrap is authoritative for the session. Use it as the context manifest for this run.",
         "- Read policy: start from the most specific relevant scope and read only the smallest relevant subset before substantive work.",
+        "- Attribution tagging (DO THIS inline, every turn it applies): when a NAMED ExoCortex input — a specific memory, decision rule, brief item, persona note, or self-model entry — materially changes what you say or decide, mark it at that exact point as `[exo: applied <name> — <short why>]`. Worked example: \"I'll keep this terse [exo: applied plain-language-rule — caller prefers no jargon]\". Tag only real, named, load-bearing influences (one tag per genuine influence); never tag the bootstrap/manifest itself or generic context; if nothing named shaped the turn, emit no tag.",
     ]
     if (context.root / "wiki" / "00_meta" / "Operating Contract.md").exists():
         lines.append("- Special contract: `wiki/00_meta/Operating Contract.md` governs managed `wiki/` and `raw/` maintenance; consult it whenever the task touches those areas.")
@@ -1156,7 +1157,7 @@ def build_context_prompt(context: Context, preload_report: PreloadReport | None 
         [
             "- Operating rules:",
             "  - at the start of a conversation, open by surfacing the brief (journal/inbox/brief.md) and the top one to three next-moves, before anything else, unless the user opens with a specific request",
-            "  - when a specific ExoCortex input (a named memory, decision rule, or brief item) materially shapes a response, tag it inline like `[exo: applied <what>]`; tag only material, named influences, never the bootstrap in general",
+            "  - emit the `[exo: applied <name> — <why>]` attribution tags described above whenever a named input is load-bearing (this is how influence is logged)",
             "  - infer from local and parent context first; ask only if ambiguity changes the outcome",
             "  - surface durable learnings as candidates for memory, workflows, skills, decision rules, or self-model updates",
             "  - if native tool memory conflicts with this bootstrap, follow the ExoCortex bootstrap and the listed ExoCortex files",

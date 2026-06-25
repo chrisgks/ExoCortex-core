@@ -11,8 +11,10 @@ Two things are printed to stdout:
    session start. Rendered from `journal/inbox/brief.md`, the single read surface.
 """
 
+import os
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -102,6 +104,32 @@ def _load_brief_text(root: Path) -> str | None:
         return None
 
 
+def _brief_age(raw_ts: str) -> tuple[str, bool]:
+    """Human age of the brief and whether it is stale (older than 6h).
+
+    The brief is precomputed at session close, so on a fresh open it can be
+    hours old. Surfacing the age — and warning when stale — stops a stale brief
+    from quietly steering the day's first decision.
+    """
+    try:
+        gen_dt = datetime.fromisoformat(raw_ts)
+        if gen_dt.tzinfo is None:
+            gen_dt = gen_dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return "", False
+    delta = datetime.now(timezone.utc) - gen_dt
+    mins = int(delta.total_seconds() // 60)
+    if mins < 1:
+        return "just now", False
+    if mins < 60:
+        age = f"{mins}m"
+    elif mins < 60 * 24:
+        age = f"{mins // 60}h"
+    else:
+        age = f"{mins // (60 * 24)}d"
+    return age, mins >= 6 * 60
+
+
 def render_brief_digest(root: Path) -> str | None:
     """A tight, action-first digest of the Brief. None if no usable brief.
 
@@ -115,9 +143,13 @@ def render_brief_digest(root: Path) -> str | None:
         return None
 
     gen = ""
+    age_str = ""
+    stale = False
     m = re.search(r"_Generated\s+([0-9T:+\-]+)", text)
     if m:
-        gen = m.group(1)[:16].replace("T", " ")
+        raw_ts = m.group(1)
+        gen = raw_ts[:16].replace("T", " ")
+        age_str, stale = _brief_age(raw_ts)
 
     sections = _parse_brief_sections(text)
     changed = _bullets(sections.get("what changed", []))
@@ -128,7 +160,17 @@ def render_brief_digest(root: Path) -> str | None:
     warns = [a for a in attention if a.lower().startswith("warn")]
 
     bar = "─" * 60
-    out: list[str] = [bar, f"  ExoCortex Brief{('   ·   ' + gen) if gen else ''}", bar]
+    header = "  ExoCortex Brief"
+    if gen:
+        header += "   ·   " + gen
+        if age_str:
+            header += f"  ·  {age_str} old"
+    out: list[str] = [bar, header, bar]
+    if stale:
+        out.append(
+            f"⚠  This brief is {age_str} old — it refreshes when a session closes, "
+            "or run `exocortex-brief` to rebuild it now."
+        )
 
     # 1) The single clearest place to start, with the allocator's reason shown
     #    verbatim — the "why" is what makes the suggestion worth trusting.
@@ -199,16 +241,25 @@ def main() -> int:
         print(f"[exo] hook-context: skipped ({exc})", file=sys.stderr)
         return 0
 
-    # 1) Full model-facing manifest first.
-    try:
-        cwd = Path.cwd()
-        domain, project = w.detect_domain_project(root, cwd)
-        agent = w.default_agent(domain, project, cwd, root)
-        mode = w.default_mode(agent)
-        context = w.collect_context(root, cwd, agent, mode)
-        print(w.build_context_prompt(context))
-    except Exception as exc:
-        print(f"[exo] hook-context: skipped ({exc})", file=sys.stderr)
+    # 1) Full model-facing manifest — ONLY for sessions the terminal wrapper did
+    #    not already cover. The wrapper injects the same `build_context_prompt`
+    #    manifest via `--append-system-prompt`, so re-printing it here in a
+    #    wrapped session duplicates a large block on screen (the "Scope/Authority"
+    #    wall) and feeds the model the manifest twice. The wrapper sets
+    #    EXOCORTEX_SESSION_ID in the child env before launch; its presence means
+    #    "wrapped" — in that case we skip straight to the human-readable brief.
+    #    Desktop/web/sub-agent sessions have no wrapper, so they still get it.
+    wrapped = bool(os.environ.get("EXOCORTEX_SESSION_ID"))
+    if not wrapped:
+        try:
+            cwd = Path.cwd()
+            domain, project = w.detect_domain_project(root, cwd)
+            agent = w.default_agent(domain, project, cwd, root)
+            mode = w.default_mode(agent)
+            context = w.collect_context(root, cwd, agent, mode)
+            print(w.build_context_prompt(context))
+        except Exception as exc:
+            print(f"[exo] hook-context: skipped ({exc})", file=sys.stderr)
 
     # 2) Human-readable digest LAST — printed at the bottom so it is the final
     #    thing on screen at session start (no scrolling to the top to read it).

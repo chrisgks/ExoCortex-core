@@ -92,9 +92,14 @@ def append_reward(
     energy: int | None,
     juice: str | None,
     source: str,
+    influence_tags: list[str] | None = None,
 ) -> Path:
     """Append one feedback record. Flat, stable schema so the log loads directly
-    as a training dataset and joins with ``review-decisions.jsonl`` by id."""
+    as a training dataset and joins with ``review-decisions.jsonl`` by id.
+
+    ``influence_tags`` records which named ExoCortex inputs the session actually
+    applied (the inline ``[exo: applied …]`` tags); omitted from the row when
+    empty so historical records stay unchanged."""
     entry = {
         "timestamp": now_iso(),
         "session_id": session_id,
@@ -105,6 +110,8 @@ def append_reward(
         "juice": juice,
         "source": source,
     }
+    if influence_tags:
+        entry["influence_tags"] = list(influence_tags)
     path = root / REWARD_LOG_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:

@@ -3344,6 +3344,76 @@ class StopHookCaptureTests(unittest.TestCase):
             self.assertTrue(session_hook.is_session_processed(root, "def-456"))
             self.assertFalse(session_hook.is_session_processed(root, "missing"))
 
+    def test_scan_influence_tags_extracts_named_inputs_and_skips_placeholders(self) -> None:
+        from tools.workers import session_hook
+
+        _td, root = self.make_root()
+        with _td:
+            transcript = root / "native.jsonl"
+            lines = [
+                json.dumps({"type": "user", "message": {"role": "user", "content": "hi"}}),
+                json.dumps({"message": {"role": "assistant", "content": [
+                    {"type": "text", "text": "Keeping it blunt [exo: applied feedback_plain_language — bans jargon]."},
+                    {"type": "text", "text": "And [exo: applied project_x]. Example placeholder [exo: applied <name>] [exo: …]"},
+                ]}}),
+                json.dumps({"message": {"role": "assistant", "content": "dupe [exo: applied project_x]"}}),
+            ]
+            transcript.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+            tags = session_hook.scan_influence_tags(transcript)
+            self.assertIn("feedback_plain_language — bans jargon", tags)
+            self.assertIn("project_x", tags)
+            # placeholders/examples filtered out, and duplicates collapsed
+            self.assertNotIn("<name>", tags)
+            self.assertEqual(tags.count("project_x"), 1)
+            self.assertTrue(all("<" not in t for t in tags))
+
+    def test_scan_influence_tags_empty_when_no_transcript(self) -> None:
+        from tools.workers import session_hook
+
+        self.assertEqual(session_hook.scan_influence_tags(None), [])
+        self.assertEqual(session_hook.scan_influence_tags(Path("/no/such/file.jsonl")), [])
+
+    def test_stop_hook_records_influence_tags_in_manifest_and_reward_log(self) -> None:
+        from tools.workers import session_hook, reward_log
+
+        _td, root = self.make_root()
+        with _td:
+            transcript = root / "native.jsonl"
+            transcript.write_text(
+                json.dumps({"message": {"role": "assistant", "content":
+                    "done [exo: applied project_exocortex_objective — instrument now]"}}) + "\n",
+                encoding="utf-8",
+            )
+
+            captured: list[Path] = []
+
+            def fake_worker(worker_root: Path, manifest_path: Path, timeout_seconds: int = 180) -> int:
+                captured.append(manifest_path)
+                return 0
+
+            payload = {
+                "session_id": "33333333-3333-3333-3333-333333333333",
+                "cwd": str(root),
+                "transcript_path": str(transcript),
+                "hook_event_name": "Stop",
+            }
+            with mock.patch.object(session_hook, "run_worker", fake_worker):
+                result = session_hook.process_stop_hook(payload, root=root)
+
+            self.assertEqual(result["status"], "processed")
+            manifest = json.loads(captured[0].read_text(encoding="utf-8"))
+            self.assertEqual(
+                manifest["influence_tags"],
+                ["project_exocortex_objective — instrument now"],
+            )
+            # and the attribution signal lands in the reward log
+            log_path = root / reward_log.REWARD_LOG_PATH
+            self.assertTrue(log_path.exists())
+            row = json.loads(log_path.read_text(encoding="utf-8").strip().splitlines()[-1])
+            self.assertEqual(row["source"], "influence-tags")
+            self.assertEqual(row["influence_tags"], ["project_exocortex_objective — instrument now"])
+
     def test_stop_hook_triggers_worker_for_unclaimed_session(self) -> None:
         from tools.workers import session_hook
 

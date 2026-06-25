@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import uuid
@@ -156,6 +157,65 @@ def _started_at_epoch_from_transcript(transcript_path: Path) -> int | None:
     return int(epoch) if epoch is not None else None
 
 
+_EXO_TAG_RE = re.compile(r"\[exo:\s*(?:applied\s+)?(.+?)\]", re.IGNORECASE | re.DOTALL)
+
+
+def _assistant_text_from_jsonl(transcript_path: Path) -> str:
+    """Concatenate every assistant text block from a Claude Code session jsonl.
+
+    Best-effort and fail-open: a malformed line is skipped, not fatal. Used only
+    to harvest the `[exo: applied …]` attribution tags the model emits inline."""
+    chunks: list[str] = []
+    try:
+        with transcript_path.open(encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line or '"assistant"' not in line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except Exception:
+                    continue
+                message = event.get("message") if isinstance(event, dict) else None
+                if not isinstance(message, dict) or message.get("role") != "assistant":
+                    continue
+                content = message.get("content")
+                if isinstance(content, str):
+                    chunks.append(content)
+                elif isinstance(content, list):
+                    for block in content:
+                        if isinstance(block, dict) and block.get("type") == "text":
+                            chunks.append(str(block.get("text", "")))
+    except OSError:
+        return ""
+    return "\n".join(chunks)
+
+
+def scan_influence_tags(transcript_path: Path | None) -> list[str]:
+    """The `[exo: applied <name> — <why>]` tags the model left in its replies.
+
+    This is the action/attribution signal: which named ExoCortex inputs actually
+    changed an answer this session. Returned as cleaned, de-duplicated inner
+    strings (order preserved) so the manifest and reward log record real usage,
+    not just what was injected."""
+    if transcript_path is None or not transcript_path.exists():
+        return []
+    text = _assistant_text_from_jsonl(transcript_path)
+    if not text:
+        return []
+    seen: dict[str, None] = {}
+    for raw in _EXO_TAG_RE.findall(text):
+        tag = " ".join(raw.split()).strip()
+        if not tag or tag.lower() == "applied" or tag in seen:
+            continue
+        # Reject placeholders/examples (`<name>`, `…`) and anything with no
+        # actual word — a real tag names a memory/rule/brief item.
+        if "<" in tag or ">" in tag or not re.search(r"\w", tag.replace("…", "")):
+            continue
+        seen[tag] = None
+    return list(seen)
+
+
 def _resolve_context(root: Path, cwd: Path) -> Any | None:
     try:
         from tools.wrappers import exocortex_wrapper as wrapper
@@ -247,6 +307,9 @@ def build_manifest_from_hook(
         "transcript_captured": False,
         "summary_status": "processing",
         "status_events": [],
+        # Which named ExoCortex inputs the model said it actually applied this
+        # session (the inline `[exo: applied …]` tags). The action signal.
+        "influence_tags": scan_influence_tags(transcript_native),
     }
 
     # Leave a small placeholder transcript file so the daily-journal step has
@@ -330,6 +393,26 @@ def process_stop_hook(payload: dict[str, Any], *, root: Path | None = None) -> d
         manifest_path.write_text(
             json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
+
+        # Log the attribution signal: which named inputs the session applied.
+        tags = manifest.get("influence_tags") or []
+        if tags:
+            try:
+                from tools.workers import reward_log
+
+                reward_log.append_reward(
+                    root,
+                    session_id=manifest["session_id"],
+                    claude_session_id=manifest.get("claude_session_id") or None,
+                    agent=manifest.get("active_agent"),
+                    scope=manifest.get("level"),
+                    energy=None,
+                    juice=None,
+                    source="influence-tags",
+                    influence_tags=tags,
+                )
+            except Exception:
+                pass
 
         code = run_worker(root, manifest_path)
         return {

@@ -9,6 +9,7 @@ only the Brief file, and that the wrapper preloads it at session start.
 
 from __future__ import annotations
 
+import os
 import sys
 import unittest
 from pathlib import Path
@@ -248,6 +249,53 @@ class StartupDigestResilienceTest(unittest.TestCase):
             write(root / "journal" / "inbox" / "brief.md", "")
             digest = hc.render_brief_digest(root)
             self.assertTrue(digest and "ExoCortex Brief" in digest)
+
+
+class StartupManifestDedupTest(unittest.TestCase):
+    """In a wrapped terminal session the manifest is already injected via
+    `--append-system-prompt`, so the hook must NOT re-print it to stdout (that's
+    the duplicated "Scope/Authority" wall that buried the brief). Wrapped → brief
+    only; unwrapped (desktop/web/sub-agent) → manifest + brief."""
+
+    def _run_main(self, *, wrapped: bool) -> str:
+        import importlib.util
+        import io
+        from contextlib import redirect_stdout
+
+        sys.path.insert(0, str(REPO_ROOT / "tools" / "wrappers"))
+        sys.path.insert(0, str(REPO_ROOT))
+        spec = importlib.util.spec_from_file_location(
+            "hook_context_main", REPO_ROOT / "tools" / "wrappers" / "hook-context.py"
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        prev = os.environ.get("EXOCORTEX_SESSION_ID")
+        if wrapped:
+            os.environ["EXOCORTEX_SESSION_ID"] = "test1234"
+        else:
+            os.environ.pop("EXOCORTEX_SESSION_ID", None)
+        buf = io.StringIO()
+        try:
+            with redirect_stdout(buf):
+                mod.main()
+        finally:
+            if prev is None:
+                os.environ.pop("EXOCORTEX_SESSION_ID", None)
+            else:
+                os.environ["EXOCORTEX_SESSION_ID"] = prev
+        return buf.getvalue()
+
+    def test_wrapped_session_prints_brief_without_manifest(self) -> None:
+        out = self._run_main(wrapped=True)
+        self.assertIn("ExoCortex Brief", out)
+        # The model-facing manifest header must be absent on screen when wrapped.
+        self.assertNotIn("ExoCortex context bootstrap", out)
+        self.assertNotIn("Read policy", out)
+
+    def test_unwrapped_session_prints_manifest_and_brief(self) -> None:
+        out = self._run_main(wrapped=False)
+        self.assertIn("ExoCortex context bootstrap", out)
+        self.assertIn("ExoCortex Brief", out)
 
 
 if __name__ == "__main__":
