@@ -785,6 +785,46 @@ def find_real_binary(tool: str, root: Path) -> str:
     return real
 
 
+# Headless `claude -p` summarizer/synthesizer calls MUST pin a model. The CLI
+# default follows whatever model the interactive session runs, which can be one
+# that is unavailable for headless calls — e.g. Fable 5 returned "currently
+# unavailable", which silently failed EVERY session summary and left the brief
+# with nothing real to show. So: pin the best model (Opus 4.8) at high reasoning
+# effort for the richest extraction, AND set a fallback model so a future
+# unavailability degrades gracefully instead of producing empty summaries again.
+# Overridable via EXOCORTEX_SUMMARIZER_MODEL / _EFFORT / _FALLBACK.
+DEFAULT_SUMMARIZER_MODEL = "claude-opus-4-8"
+DEFAULT_SUMMARIZER_EFFORT = "high"
+DEFAULT_SUMMARIZER_FALLBACK = "claude-sonnet-4-6"
+
+
+def summarizer_model() -> str:
+    return os.environ.get("EXOCORTEX_SUMMARIZER_MODEL", "").strip() or DEFAULT_SUMMARIZER_MODEL
+
+
+def summarizer_flags() -> list[str]:
+    """Model + reasoning + fallback flags for every headless summarizer call."""
+    flags = ["--model", summarizer_model()]
+    effort = os.environ.get("EXOCORTEX_SUMMARIZER_EFFORT", "").strip() or DEFAULT_SUMMARIZER_EFFORT
+    if effort:
+        flags += ["--effort", effort]
+    fallback = os.environ.get("EXOCORTEX_SUMMARIZER_FALLBACK", DEFAULT_SUMMARIZER_FALLBACK).strip()
+    if fallback:
+        flags += ["--fallback-model", fallback]
+    return flags
+
+
+def headless_claude_argv(real_claude: str, *mid_flags: str) -> list[str]:
+    """Argv prefix for every ExoCortex-owned headless ``claude -p`` call.
+
+    ``--bare`` skips SessionStart/Stop hooks. Without it, each summarizer run
+    from the repo root retriggers the Stop hook, which spawns another
+    ``process_session.py`` worker — an exponential cascade that maxes RAM/CPU
+    and burns API allowance.
+    """
+    return [real_claude, "--bare", "-p", *summarizer_flags(), *mid_flags]
+
+
 def summary_prompt_template(root: Path) -> str:
     prompt_path = root / "tools" / "prompts" / "session_summary.md"
     return prompt_path.read_text(encoding="utf-8")
@@ -930,12 +970,13 @@ def call_claude_summarizer(
         transcript=transcript_text[-40000:],
     )
     command = [
-        real_claude,
-        "-p",
-        "--output-format",
-        "json",
-        "--json-schema",
-        json.dumps(model_summary_schema()),
+        *headless_claude_argv(
+            real_claude,
+            "--output-format",
+            "json",
+            "--json-schema",
+            json.dumps(model_summary_schema()),
+        ),
         prompt,
     ]
     emit_progress("summarizing", "calling Claude to summarize...")
@@ -2119,12 +2160,13 @@ def call_claude_period_synthesizer(root: Path, level: str, period_label: str, in
     real_claude = find_real_binary("claude", root)
     prompt = _format_period_prompt(root, level, period_label, input_text)
     command = [
-        real_claude,
-        "-p",
-        "--output-format",
-        "json",
-        "--json-schema",
-        json.dumps(period_synthesis_schema()),
+        *headless_claude_argv(
+            real_claude,
+            "--output-format",
+            "json",
+            "--json-schema",
+            json.dumps(period_synthesis_schema()),
+        ),
         prompt,
     ]
     result = subprocess.run(
@@ -2415,13 +2457,13 @@ def call_claude_state_updater(
         output_instruction="6. Return ONLY the updated STATE.md content — no preamble, no explanation, no code fences.",
     )
     result = subprocess.run(
-        [real_claude, "-p", prompt],
+        [*headless_claude_argv(real_claude), prompt],
         cwd=str(root),
         stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         check=True,
-        timeout=90,
+        timeout=180,
     )
     updated = result.stdout.strip()
     if updated and len(updated) > 100:  # sanity-check: non-trivial output

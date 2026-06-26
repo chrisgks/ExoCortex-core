@@ -127,6 +127,8 @@ ExoCortex does real work in the background, under a strict authority contract. T
 
 Background work observes and stages. It captures sessions, stages candidates, builds the brief, and flags staleness. It never changes durable state quietly — every stateful write goes through the Logbook, append-only and reversible.
 
+When a session ends, the capture hook spawns this work as a detached process and returns at once, so the heavy part — summarizing the session, extracting candidates, rolling up the weekly and longer-horizon syntheses — runs to completion on its own clock, never under a hook's timeout. The brief is decoupled from all of that: it is cheap to assemble from state that already exists, so it is rendered fresh the moment you open a session, independent of whether the previous session's background pass has finished. You never wait on it, and it is never stale.
+
 At an authority boundary it proposes and waits for you. Those boundaries are durable promotion (changing memory, rules, or wiki claims, which happens only in the review loop), file moves (ingesting or relocating material, which needs an explicit go), and anything that touches the outside world (which always needs clear authority). There is no path where the system writes a durable file by itself.
 
 There's no push layer yet. The brief is pull — it's waiting for you when you open a session. Channels, scheduling, and nudges are future work.

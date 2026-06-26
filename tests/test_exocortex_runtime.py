@@ -2981,6 +2981,50 @@ class ExoCortexRuntimeTests(unittest.TestCase):
         self.assertEqual(agent, "knowledge-steward")
 
 
+class SummarizerModelPinTests(unittest.TestCase):
+    """Every headless ``claude -p`` summarizer call MUST pin a model explicitly.
+
+    The original failure: the command omitted ``--model``, so it defaulted to the
+    interactive session's model (Fable 5), which was unavailable for headless
+    calls and silently failed EVERY session summary — leaving the brief with no
+    real content. The pre-existing tests mocked the subprocess and only checked
+    JSON parsing, so a missing flag was invisible to them. These tests guard the
+    command itself, which is where the bug lived."""
+
+    def test_summarizer_flags_pin_model_effort_and_fallback(self) -> None:
+        flags = worker.summarizer_flags()
+        self.assertIn("--model", flags)
+        self.assertTrue(flags[flags.index("--model") + 1], "model must be non-empty")
+        self.assertIn("--effort", flags)
+        self.assertIn("--fallback-model", flags, "a fallback keeps summaries flowing if the primary is unavailable")
+
+    def test_headless_claude_argv_includes_bare(self) -> None:
+        argv = worker.headless_claude_argv("claude", "--output-format", "json")
+        self.assertEqual(argv[0], "claude")
+        self.assertEqual(argv[1], "--bare", "headless summarizers must skip hooks to avoid Stop-hook cascades")
+        self.assertEqual(argv[2], "-p")
+        self.assertIn("--model", argv)
+
+    def test_summarizer_command_pins_a_model(self) -> None:
+        captured: dict[str, list[str]] = {}
+
+        def fake_run(cmd, **kwargs):  # capture the command, then stop early
+            captured["cmd"] = cmd
+            raise RuntimeError("stop-after-capture")
+
+        with mock.patch.object(worker, "find_real_binary", return_value="claude"), \
+             mock.patch.object(worker, "summary_prompt_template", return_value="{manifest}{context}{transcript}"), \
+             mock.patch.object(worker.subprocess, "run", side_effect=fake_run):
+            with self.assertRaises(RuntimeError):
+                worker.call_claude_summarizer(Path("/tmp"), {"x": 1}, "transcript", "context")
+
+        cmd = captured["cmd"]
+        self.assertIn("--bare", cmd, "summarizer command must skip hooks")
+        self.assertIn("--model", cmd, "summarizer command must never rely on the CLI default model")
+        self.assertTrue(cmd[cmd.index("--model") + 1], "pinned model must be non-empty")
+        self.assertIn("--effort", cmd)
+
+
 class ClaudeMemTranscriptFallbackTests(unittest.TestCase):
     """``load_claude_mem_session`` must not short-circuit the rich raw jsonl
     with a prompts-only result. When claude-mem has logged user prompts but
@@ -3401,7 +3445,7 @@ class StopHookCaptureTests(unittest.TestCase):
             with mock.patch.object(session_hook, "run_worker", fake_worker):
                 result = session_hook.process_stop_hook(payload, root=root)
 
-            self.assertEqual(result["status"], "processed")
+            self.assertEqual(result["status"], "dispatched")
             manifest = json.loads(captured[0].read_text(encoding="utf-8"))
             self.assertEqual(
                 manifest["influence_tags"],
@@ -3434,13 +3478,71 @@ class StopHookCaptureTests(unittest.TestCase):
             with mock.patch.object(session_hook, "run_worker", fake_worker):
                 result = session_hook.process_stop_hook(payload, root=root)
 
-            self.assertEqual(result["status"], "processed")
+            self.assertEqual(result["status"], "dispatched")
             self.assertEqual(len(calls), 1, "worker should run exactly once")
             manifest = json.loads(calls[0].read_text(encoding="utf-8"))
             self.assertEqual(manifest["source"], "stop-hook")
             self.assertEqual(manifest["claude_session_id"], payload["session_id"])
             self.assertEqual(manifest["capture_strategy"], "claude-jsonl")
             self.assertEqual(manifest["tool"], "claude")
+
+    def test_stop_hook_refreshes_brief_independent_of_worker(self) -> None:
+        """The "still no brief" failure: the Brief used to be rendered only at the
+        tail of the heavy worker, which got killed on long sessions before
+        reaching it, freezing the Brief. The hook now renders the Brief
+        synchronously, independent of the (detached, fire-and-forget) worker — so
+        even if the worker cannot be dispatched at all, the Brief still refreshes."""
+        from tools.workers import session_hook, build_brief
+
+        _td, root = self.make_root()
+        with _td:
+            def failed_dispatch(worker_root: Path, manifest_path: Path) -> int:
+                return 1  # worst case: the worker could not even be spawned
+
+            built: list[Path] = []
+
+            def fake_write_brief(brief_root) -> None:
+                built.append(Path(brief_root))
+                inbox = Path(brief_root) / "journal" / "inbox"
+                inbox.mkdir(parents=True, exist_ok=True)
+                (inbox / "brief.md").write_text("fresh\n", encoding="utf-8")
+
+            payload = {
+                "session_id": "55555555-5555-5555-5555-555555555555",
+                "cwd": str(root),
+                "hook_event_name": "Stop",
+            }
+            with mock.patch.object(session_hook, "run_worker", failed_dispatch), \
+                 mock.patch.object(build_brief, "write_brief", fake_write_brief):
+                result = session_hook.process_stop_hook(payload, root=root)
+
+            self.assertEqual(result["status"], "error")  # dispatch failed...
+            self.assertTrue(result["brief_refreshed"], "...but the Brief must still refresh")
+            self.assertEqual(len(built), 1, "refresh_brief must call write_brief exactly once")
+            self.assertTrue((root / "journal" / "inbox" / "brief.md").exists())
+
+    def test_run_worker_dispatches_detached_and_returns_immediately(self) -> None:
+        """The worker must be spawned detached (own session group, stdin closed,
+        output redirected) and run_worker must return at once — never block the
+        hook on the long synthesis chain, which is what got it timeout-killed."""
+        from tools.workers import session_hook
+
+        _td, root = self.make_root()
+        with _td:
+            captured: dict[str, Any] = {}
+
+            class FakePopen:
+                def __init__(self, cmd, **kw):
+                    captured["cmd"] = cmd
+                    captured["kw"] = kw
+
+            with mock.patch.object(session_hook.subprocess, "Popen", FakePopen):
+                code = session_hook.run_worker(root, root / "manifest.json")
+
+            self.assertEqual(code, 0, "successful dispatch returns 0")
+            self.assertTrue(captured["kw"].get("start_new_session"), "must detach into its own session")
+            self.assertEqual(captured["kw"].get("stdin"), session_hook.subprocess.DEVNULL, "stdin must be closed")
+            self.assertIn("process_session.py", " ".join(str(c) for c in captured["cmd"]))
 
     def test_stop_hook_dedups_against_already_processed_session(self) -> None:
         from tools.workers import session_hook
@@ -3483,7 +3585,7 @@ class StopHookCaptureTests(unittest.TestCase):
                 first = session_hook.process_stop_hook(payload, root=root)
                 second = session_hook.process_stop_hook(payload, root=root)
 
-            self.assertEqual(first["status"], "processed")
+            self.assertEqual(first["status"], "dispatched")
             self.assertEqual(second["status"], "skipped")
             self.assertEqual(len(calls), 1, "two Stop-hook fires must process the session once")
 
@@ -3624,6 +3726,77 @@ class ObserverHeadlessCaptureFilterTests(unittest.TestCase):
             self.assertEqual(result["status"], "skipped")
             self.assertEqual(calls, [], "observer-session Stop hook must not run the worker")
 
+    def test_stop_hook_skips_sdk_cli_entrypoint(self) -> None:
+        from tools.workers import session_hook
+
+        _td, root = StopHookCaptureTests.make_root(self)
+        with _td:
+            transcript = root / "sdk-cli.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "type": "user",
+                        "entrypoint": "sdk-cli",
+                        "message": {"role": "user", "content": "headless print prompt"},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            calls: list[Path] = []
+
+            def fake_worker(worker_root: Path, manifest_path: Path, timeout_seconds: int = 180) -> int:
+                calls.append(manifest_path)
+                return 0
+
+            payload = {
+                "session_id": "77777777-7777-7777-7777-777777777777",
+                "cwd": str(root),
+                "transcript_path": str(transcript),
+                "hook_event_name": "Stop",
+            }
+            with mock.patch.object(session_hook, "run_worker", fake_worker):
+                result = session_hook.process_stop_hook(payload, root=root)
+
+            self.assertEqual(result["status"], "skipped")
+            self.assertEqual(result.get("reason"), "observer/headless session")
+            self.assertEqual(calls, [], "sdk-cli Stop hook must not run the worker")
+
+    def test_stop_hook_still_processes_cli_entrypoint_session(self) -> None:
+        from tools.workers import session_hook
+
+        _td, root = StopHookCaptureTests.make_root(self)
+        with _td:
+            transcript = root / "interactive.jsonl"
+            transcript.write_text(
+                json.dumps(
+                    {
+                        "type": "user",
+                        "entrypoint": "cli",
+                        "message": {"role": "user", "content": "fix the wrapper"},
+                    }
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            calls: list[Path] = []
+
+            def fake_worker(worker_root: Path, manifest_path: Path, timeout_seconds: int = 180) -> int:
+                calls.append(manifest_path)
+                return 0
+
+            payload = {
+                "session_id": "88888888-8888-8888-8888-888888888888",
+                "cwd": str(root),
+                "transcript_path": str(transcript),
+                "hook_event_name": "Stop",
+            }
+            with mock.patch.object(session_hook, "run_worker", fake_worker):
+                result = session_hook.process_stop_hook(payload, root=root)
+
+            self.assertEqual(result["status"], "dispatched")
+            self.assertEqual(len(calls), 1, "interactive cli entrypoint must still dispatch the worker")
+
     def test_stop_hook_still_processes_real_session(self) -> None:
         from tools.workers import session_hook
 
@@ -3643,7 +3816,7 @@ class ObserverHeadlessCaptureFilterTests(unittest.TestCase):
             with mock.patch.object(session_hook, "run_worker", fake_worker):
                 result = session_hook.process_stop_hook(payload, root=root)
 
-            self.assertEqual(result["status"], "processed")
+            self.assertEqual(result["status"], "dispatched")
             self.assertEqual(len(calls), 1)
 
 

@@ -29,7 +29,7 @@ Default authority: `observe` and `stage` are allowed when they directly support 
 
 | Trigger | Action | Authority | Command |
 |---|---|---|---|
-| Every wrapped session ends | Summarize session, extract candidates, update queues and weekly synthesis | stage | `process_session.py` via wrapper |
+| Every session ends (wrapped or not) | Refresh the startup brief, then summarize session, extract candidates, update queues and weekly synthesis | stage | `session_hook.py` / wrapper dispatch `process_session.py` **detached** (no hook timeout); brief also rendered fresh at next session start |
 | Wrapped harness token events or local usage logs update | Print sparse `[exo] cost` status lines from actual token totals and current pricing table | observe | wrapper live monitor |
 | Every priced wrapped Codex, Claude Code, or Gemini CLI session ends | Append private token and dollar record, then refresh daily usage rollup | observe | `tools/workers/usage.py` via wrapper |
 | Model synthesis fails | Write summary only, suppress promotion candidates, log synthesis error | observe | `tools/workers/process_session.py` |

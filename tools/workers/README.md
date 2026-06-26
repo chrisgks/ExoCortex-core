@@ -43,5 +43,8 @@ Behavior:
 - reports operational health across hygiene, session artifacts, candidate queues, raw inbox, latest session, and the Logbook
 - records every durable write and file move to the append-only, reversible `journal/logbook.jsonl`
 - records token usage and dollar cost for wrapped Codex, Claude Code, and Gemini CLI sessions in the private `journal/usage/` usage record using `system/USAGE RATES.json`
+- refreshes the startup brief (`journal/inbox/brief.md`) so the next session opens on current state
+
+`process_session.py` is dispatched **detached** by the Stop hook (`session_hook.py`) and the wrapper — it runs in its own process group with no controlling terminal and its output to `journal/logs/worker.log`, so the long summary/synthesis chain always runs to completion and is never killed by a hook timeout. The brief is the one piece not left to this background pass: the Stop hook renders it synchronously (it is cheap), and the session-start hook renders it fresh again on open, so the brief is always current regardless of worker timing.
 
 By default the session worker uses model-backed extraction if available and fails closed for promotion candidates if model calls fail. Heuristic summaries can still be written, but heuristic promotion candidates are suppressed.

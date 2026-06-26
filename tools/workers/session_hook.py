@@ -116,16 +116,78 @@ def is_session_processed(root: Path, session_id: str) -> bool:
     return session_id in data.get("seen", {})
 
 
+_EXOCORTEX_SUMMARIZER_MARKERS = (
+    "You are the ExoCortex session summarizer",
+    "You are the ExoCortex period synthesizer",
+)
+
+
+def _first_user_event_meta(transcript_path: Path) -> dict[str, Any]:
+    """Best-effort read of the first user turn in a Claude Code session jsonl."""
+    try:
+        with transcript_path.open(encoding="utf-8", errors="replace") as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    event = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(event, dict) or event.get("type") != "user":
+                    continue
+                message = event.get("message")
+                content = ""
+                if isinstance(message, dict):
+                    raw = message.get("content", "")
+                    if isinstance(raw, str):
+                        content = raw
+                    elif isinstance(raw, list):
+                        content = " ".join(
+                            str(block.get("text", ""))
+                            for block in raw
+                            if isinstance(block, dict) and block.get("type") == "text"
+                        )
+                return {
+                    "entrypoint": str(event.get("entrypoint") or ""),
+                    "prompt_source": str(event.get("promptSource") or ""),
+                    "content": content,
+                }
+    except OSError:
+        pass
+    return {}
+
+
+def _is_headless_from_transcript(payload: dict[str, Any]) -> bool:
+    """Detect headless ``claude -p`` sessions the Stop payload cannot see via argv.
+
+    Print-mode sessions record ``entrypoint: sdk-cli`` (interactive sessions use
+    ``cli``). ExoCortex-owned summarizer prompts also carry a fixed header.
+    """
+    transcript_value = payload.get("transcript_path") or ""
+    if not transcript_value:
+        return False
+    path = Path(str(transcript_value)).expanduser()
+    if not path.is_file():
+        return False
+    meta = _first_user_event_meta(path)
+    if meta.get("entrypoint") == "sdk-cli":
+        return True
+    content = meta.get("content") or ""
+    return any(marker in content for marker in _EXOCORTEX_SUMMARIZER_MARKERS)
+
+
 def _is_observer_or_headless_payload(payload: dict[str, Any]) -> bool:
     """Whether a Stop-hook payload describes a machine-internal / headless
     session that must be skipped (spec §5 item 1b).
 
-    The payload carries no argv, so cwd is the only available signal. Delegates
-    to the wrapper's detector (single source of truth) so the gate stays
-    consistent across the wrapper path and the Stop-hook path. The Stop hook
-    only fires for real Claude Code sessions, so ``stdin_is_tty`` is treated as
-    True here — cwd / headless-flag detection is what does the filtering.
+    The payload carries no argv, so cwd and the native transcript are the
+    available signals. Delegates cwd/headless-flag detection to the wrapper's
+    detector (single source of truth) and additionally inspects the session
+    jsonl for print-mode (``sdk-cli``) and ExoCortex summarizer prompts.
     """
+    if _is_headless_from_transcript(payload):
+        return True
     cwd_value = payload.get("cwd")
     if not cwd_value:
         return False
@@ -335,13 +397,66 @@ def build_manifest_from_hook(
     return manifest
 
 
-def run_worker(root: Path, manifest_path: Path, timeout_seconds: int = 180) -> int:
+def run_worker(root: Path, manifest_path: Path) -> int:
+    """Dispatch the postprocess worker as a *detached* background process and
+    return immediately. Returns 0 on successful dispatch, non-zero otherwise.
+
+    The worker (process_session.py) runs a long, serial, LLM-heavy chain
+    (summary, period synthesis, rollups, project-state, Brief). The old design
+    ran it synchronously under a 180s timeout, so any real working session was
+    killed mid-flight — freezing summaries, candidates, and the Brief together
+    (the "stillnobrief" failure). Detaching it (own session/process group, no
+    controlling tty, stdin closed, output to a log) lets it always run to
+    completion no matter how long it takes. This is the harness-agnostic version
+    of what makes claude-mem seamless: hooks enqueue, a background worker
+    processes out-of-band, never under a hook timeout."""
     command = [sys.executable, str(root / "tools" / "workers" / "process_session.py"), str(manifest_path)]
+    log_dir = root / "journal" / "logs"
+    log_handle: Any = subprocess.DEVNULL
     try:
-        result = subprocess.run(command, cwd=str(root), timeout=timeout_seconds)
-        return result.returncode
-    except subprocess.TimeoutExpired:
-        return 124
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_handle = open(log_dir / "worker.log", "ab")
+    except OSError:
+        log_handle = subprocess.DEVNULL
+    try:
+        subprocess.Popen(
+            command,
+            cwd=str(root),
+            stdin=subprocess.DEVNULL,
+            stdout=log_handle,
+            stderr=log_handle,
+            start_new_session=True,
+            close_fds=True,
+        )
+        return 0
+    except Exception:
+        return 1
+    finally:
+        if log_handle is not subprocess.DEVNULL:
+            try:
+                log_handle.close()
+            except Exception:
+                pass
+
+
+def refresh_brief(root: Path) -> bool:
+    """Rebuild the startup Brief from current state. Sub-second and fail-open.
+
+    The worker (process_session.py) already refreshes the Brief as its final
+    step — but that step is the tail of a long, LLM-heavy chain run under
+    run_worker's timeout. On any real working session the chain can exceed the
+    timeout and be killed before reaching the Brief refresh, leaving the next
+    session to open on a stale Brief (the original "still no brief" failure).
+    Calling this here, outside the killable worker, guarantees the Brief is
+    current at session close regardless of whether the heavy postprocess
+    finished. Never raises: a hook step must not break the session."""
+    try:
+        from tools.workers import build_brief
+
+        build_brief.write_brief(root)
+        return True
+    except Exception:
+        return False
 
 
 def process_stop_hook(payload: dict[str, Any], *, root: Path | None = None) -> dict[str, Any]:
@@ -415,11 +530,21 @@ def process_stop_hook(payload: dict[str, Any], *, root: Path | None = None) -> d
                 pass
 
         code = run_worker(root, manifest_path)
+
+        # Render the Brief synchronously here. It is cheap (well under a second
+        # now that the hygiene scan no longer walks the journal or nested project
+        # repos), so the next session is guaranteed to open on a current Brief
+        # without waiting on the detached worker's long synthesis. The worker
+        # also refreshes it at the end of its run, upgrading it with this
+        # session's freshly synthesised data once that finishes in the
+        # background. Both writes are atomic, so they never race to an empty file.
+        brief_refreshed = refresh_brief(root)
         return {
-            "status": "processed" if code == 0 else "error",
+            "status": "dispatched" if code == 0 else "error",
             "session_id": claude_session_id,
             "local_id": manifest["session_id"],
             "worker_code": code,
+            "brief_refreshed": brief_refreshed,
         }
     except Exception as exc:  # never let a hook failure kill a session
         return {"status": "error", "reason": str(exc)}
@@ -442,7 +567,7 @@ def main() -> int:
     # continue response and keep our own status on stderr for debugging.
     try:
         print(json.dumps({"continue": True, "suppressOutput": True}))
-        if result.get("status") not in {"processed", "skipped", "noop"}:
+        if result.get("status") not in {"dispatched", "skipped", "noop"}:
             print(f"[exo] session_hook: {result}", file=sys.stderr)
     except Exception:
         pass

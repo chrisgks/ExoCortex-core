@@ -64,28 +64,37 @@ def strip_volatile(text: str) -> str:
 
 def recent_sessions(root: Path, limit: int = 5) -> list[str]:
     """Most recent session manifests, newest first, as `date / agent` lines."""
-    manifests = sorted(
-        (root / "journal" / "sessions").glob("*/*.json"), reverse=True
+    sessions_dir = root / "journal" / "sessions"
+    if not sessions_dir.is_dir():
+        return []
+    # Walk day folders newest-first instead of sorting every manifest path under
+    # journal/sessions — the runaway Stop-hook loop can create thousands of
+    # sidecars and this keeps SessionStart brief renders bounded.
+    day_dirs = sorted(
+        (p for p in sessions_dir.iterdir() if p.is_dir()),
+        key=lambda p: p.name,
+        reverse=True,
     )
     lines: list[str] = []
-    for path in manifests:
-        # Skip the sidecar artifacts (.intelligence.json etc.); keep bare manifests.
-        if path.name.count(".") > 1:
-            continue
-        day = path.parent.name
-        agent = ""
-        try:
-            import json
+    for day_dir in day_dirs:
+        for path in sorted(day_dir.glob("*.json"), reverse=True):
+            # Skip the sidecar artifacts (.intelligence.json etc.); keep bare manifests.
+            if path.name.count(".") > 1:
+                continue
+            day = day_dir.name
+            agent = ""
+            try:
+                import json
 
-            data = json.loads(path.read_text(encoding="utf-8"))
-            agent = data.get("active_agent", "")
-        except Exception:
-            pass
-        label = f"{day}" + (f" - {agent}" if agent else "")
-        if label not in lines:
-            lines.append(label)
-        if len(lines) >= limit:
-            break
+                data = json.loads(path.read_text(encoding="utf-8"))
+                agent = data.get("active_agent", "")
+            except Exception:
+                pass
+            label = f"{day}" + (f" - {agent}" if agent else "")
+            if label not in lines:
+                lines.append(label)
+            if len(lines) >= limit:
+                return lines
     return lines
 
 

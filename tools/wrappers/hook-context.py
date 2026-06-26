@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""SessionStart hook: emit the ExoCortex context manifest into Claude Code sessions
-started outside the terminal wrapper (desktop app, web UI, sub-agents).
+"""SessionStart hook: surface the ExoCortex Brief and context at session start.
 
-Two things are printed to stdout:
+The hook emits a single SessionStart JSON object on stdout:
 
-1. The full ExoCortex context manifest (model-facing). Harmless if the terminal
-   wrapper also injects it via --append-system-prompt.
-2. A short, human-readable Brief digest (what changed / what needs attention /
-   the top next moves), printed LAST so it is the final thing on screen at
-   session start. Rendered from `journal/inbox/brief.md`, the single read surface.
+- ``systemMessage``: the human-readable Brief digest. This is the ONLY hook
+  field the harness renders DIRECTLY to the user's terminal. Plain SessionStart
+  stdout is added to the model's context but never shown on screen — which is
+  why earlier versions printed a correct brief that the user never saw.
+- ``hookSpecificOutput.additionalContext``: the same brief plus, for sessions
+  not already covered by the terminal wrapper, the full context manifest — so
+  the model also has it (harmless if the wrapper injects the manifest too).
 """
 
+import json
 import os
 import re
 import sys
@@ -20,6 +22,123 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 BRIEF_FILE = "journal/inbox/brief.md"
+
+# The digest is delivered via the SessionStart hook's `systemMessage`, which the
+# harness renders to the terminal. Whether it also renders ANSI colour is not
+# guaranteed across versions — if colour shows up as raw escape codes on screen,
+# flip USE_COLOR to False and the layout still reads cleanly in plain text.
+USE_COLOR = True
+WIDTH = 62
+
+
+def _c(code: str, s: str) -> str:
+    """Wrap text in an ANSI SGR code (no-op when colour is disabled)."""
+    return f"\033[{code}m{s}\033[0m" if USE_COLOR else s
+
+
+def _fit(s: str, n: int) -> str:
+    """Truncate to n display chars with an ellipsis so lines never wrap. The full
+    text always lives in the brief file; the digest is a glance surface."""
+    s = s.strip().rstrip(".")
+    return s if len(s) <= n else s[: n - 1].rstrip() + "…"
+
+
+def _wrap(s: str, width: int, indent: str, max_lines: int = 2) -> list[str]:
+    """Word-wrap a short narrative to at most max_lines, ellipsising overflow."""
+    words = s.split()
+    lines: list[str] = []
+    cur = ""
+    for w in words:
+        if cur and len(cur) + 1 + len(w) > width:
+            lines.append(indent + cur)
+            cur = w
+            if len(lines) == max_lines:
+                break
+        else:
+            cur = f"{cur} {w}".strip()
+    if cur and len(lines) < max_lines:
+        lines.append(indent + cur)
+    used = sum(len(line) - len(indent) for line in lines)
+    if len(lines) == max_lines and used < len(s):
+        lines[-1] = lines[-1].rstrip().rstrip(".") + "…"
+    return lines
+
+
+def _bullet_lines(text: str, width: int, lead: str = "   • ", cont: str = "     ") -> list[str]:
+    """Render one bullet, wrapping with a hanging indent so the FULL text shows
+    (the brief is for re-orientation — never silently truncate the content)."""
+    words = text.split()
+    lines: list[str] = []
+    cur = lead
+    for w in words:
+        started = cur not in (lead, cont)
+        trial = f"{cur} {w}" if started else cur + w
+        if started and len(trial) > width:
+            lines.append(cur)
+            cur = cont + w
+        else:
+            cur = trial
+    if cur not in (lead, cont):
+        lines.append(cur)
+    return lines
+
+
+def _latest_weekly_text(root: Path) -> str:
+    d = root / "journal" / "weekly"
+    if not d.exists():
+        return ""
+    # Only dated synthesis pages (YYYY-Www.md) — not README or other files.
+    files = sorted(f for f in d.glob("*.md") if re.fullmatch(r"\d{4}-W\d+", f.stem))
+    if not files:
+        return ""
+    try:
+        return files[-1].read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _intro_of(text: str) -> str:
+    """The opening narrative paragraph of a synthesis (what's been happening)."""
+    for block in re.split(r"\n\s*\n", text):
+        b = block.strip()
+        if not b or b.startswith(("#", "- ", "generated_at", "sources", "confidence")):
+            continue
+        return " ".join(b.split())
+    return ""
+
+
+def _section_bullets(text: str, heading: str, n: int) -> list[str]:
+    """Top n bullets under a `## heading` in a synthesis page."""
+    m = re.search(rf"##\s*{re.escape(heading)}\s*\n(.*?)(?:\n##|\Z)", text, re.S | re.I)
+    if not m:
+        return []
+    out: list[str] = []
+    for ln in m.group(1).splitlines():
+        ln = ln.strip()
+        if ln.startswith("- "):
+            out.append(" ".join(ln[2:].split()))
+            if len(out) >= n:
+                break
+    return out
+
+
+def _open_loops(root: Path, n: int = 3) -> list[str]:
+    """Real open commitments/threads — skips auto-captured stale state notes."""
+    p = root / "system" / "OPEN LOOPS.md"
+    if not p.exists():
+        return []
+    out: list[str] = []
+    for line in p.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line.startswith("- ") or "(recorded:" in line:
+            continue
+        out.append(re.sub(r"\s*\(recorded:.*?\)", "", line[2:]).strip())
+        if len(out) >= n:
+            break
+    return out
+
+
+_DIM, _BOLD, _CYAN, _YEL, _TITLE = "2", "1", "36", "33", "1;36"
 
 
 def _parse_brief_sections(text: str) -> dict[str, list[str]]:
@@ -81,25 +200,40 @@ def _num(text: str) -> str:
 
 
 def _load_brief_text(root: Path) -> str | None:
-    """The Brief text, never silently empty.
+    """The Brief text, rendered fresh on every session start and never silently
+    empty.
 
-    Reads ``journal/inbox/brief.md`` but falls back to rendering the Brief live
-    when the file is missing, empty, or caught mid-rewrite by a concurrent
-    session close. Without this fallback a transient empty read makes the startup
-    digest vanish, leaving only other tools' output on screen.
+    The Brief is cheap to render now (sub-second — the hygiene scan no longer
+    walks the journal or nested project repos), so we render it fresh and persist
+    it on every open. This is the hard guarantee the user asked for: the startup
+    digest reflects current state on *absolutely every* session start, never a
+    stale snapshot, and independent of whether the previous session's detached
+    background worker has finished yet.
+
+    Robustness is layered: render-and-persist first; on any render failure, fall
+    back to the last-good ``brief.md`` on disk (its age is surfaced, so a stale
+    fallback is visible, not silent); only if both fail do we give up. So the
+    digest never simply vanishes.
     """
     path = root / BRIEF_FILE
     try:
+        from tools.workers import build_brief
+
+        build_brief.write_brief(root)  # render fresh + atomic persist (single render)
+    except Exception:
+        pass
+    try:
         text = path.read_text(encoding="utf-8")
+        if text.strip():
+            return text
     except OSError:
-        text = ""
-    if text.strip():
-        return text
-    # File absent/empty/partial — build it in-memory so the brief still shows.
+        pass
+    # Persist failed and no usable file on disk — last resort: render in-memory.
     try:
         from tools.workers import build_brief
 
-        return build_brief.render_brief(root)
+        text = build_brief.render_brief(root)
+        return text if text and text.strip() else None
     except Exception:
         return None
 
@@ -152,83 +286,73 @@ def render_brief_digest(root: Path) -> str | None:
         age_str, stale = _brief_age(raw_ts)
 
     sections = _parse_brief_sections(text)
-    changed = _bullets(sections.get("what changed", []))
     attention = _bullets(sections.get("what's stale / needs attention", []))
     ship = _bullets(sections.get("what's ready to ship", []))
-    moves = _moves_with_why(sections.get("next best moves", []))
-
     warns = [a for a in attention if a.lower().startswith("warn")]
 
-    bar = "─" * 60
-    header = "  ExoCortex Brief"
+    # The brief exists to kill re-orientation cost: open a session and reload
+    # exactly where you were. So lead with substance — what's been happening,
+    # what you worked on, the open loops and live threads — pulled from the
+    # weekly synthesis and the open-loops ledger. System counters are demoted to
+    # one dim footer line; they are not what you re-orient on.
+    wk = _latest_weekly_text(root)
+    where = _intro_of(wk)
+    worked = _section_bullets(wk, "Work & Projects", 3)
+    threads = _section_bullets(wk, "Ideas & Threads", 3)
+    loops = _open_loops(root, 3)
+
+    rule = _c(_DIM, "─" * WIDTH)
+    title = "◆ ExoCortex Brief"
+    right = ""
     if gen:
-        header += "   ·   " + gen
-        if age_str:
-            header += f"  ·  {age_str} old"
-    out: list[str] = [bar, header, bar]
+        clock = gen[11:16] if len(gen) >= 16 else gen
+        right = clock + (f" · {age_str}" if age_str else "")
+    pad = max(1, WIDTH - len("  " + title) - len(right))
+    out: list[str] = [
+        rule,
+        "  " + _c(_TITLE, title) + (" " * pad) + _c(_DIM, right),
+        rule,
+        "",
+    ]
     if stale:
-        out.append(
-            f"⚠  This brief is {age_str} old — it refreshes when a session closes, "
-            "or run `exocortex-brief` to rebuild it now."
-        )
+        out.append("  " + _c(_YEL, f"⚠ {age_str} old — run `exocortex-brief` to rebuild"))
+        out.append("")
 
-    # 1) The single clearest place to start, with the allocator's reason shown
-    #    verbatim — the "why" is what makes the suggestion worth trusting.
-    if moves:
-        act, why = moves[0]
-        out.append(f"▶  Start here   {act}")
-        if why:
-            out.append(f"   why →       {why}")
-        rest = moves[1:3]
-        if rest:
-            out.append("   Next")
-            for i, (act, why) in enumerate(rest, start=2):
-                out.append(f"     {i}. {act}")
-                if why:
-                    out.append(f"        why → {why}")
-    else:
-        out.append("▶  Start here   nothing queued — `exocortex-next` to plan, or just go.")
+    def section(label: str, bullets: list[str]) -> None:
+        if not bullets:
+            return
+        out.append("  " + _c(_BOLD, label))
+        for b in bullets:
+            out.extend(_bullet_lines(b, WIDTH))
+        out.append("")
 
-    # 2) Ship arm — the output lane.
+    # Where things stand — the full narrative, wrapped, never truncated.
+    if where:
+        out.append("  " + _c(_BOLD, "WHERE YOU LEFT OFF"))
+        out.extend(_wrap(where, WIDTH - 2, "  ", max_lines=20))
+        out.append("")
+
+    section("WORKED ON", worked)
+    section("OPEN LOOPS", loops)
+    section("THREADS", threads)
+
     if ship:
         empty = any("nothing in the ship tracker" in s.lower() for s in ship)
-        if empty:
-            out.append("◆  Ship:        nothing queued — `exocortex-ship add \"<title>\"`")
-        else:
-            out.append("◆  Ship:        " + "  ·  ".join(ship[:2]))
+        out.append("  " + _c(_BOLD, "SHIP   ")
+                   + ('nothing queued — exocortex-ship add "<title>"'
+                      if empty else "  ".join(ship[:2])))
+        out.append("")
 
-    # 3) Continuity — what was happening, so re-entry is cheap.
-    synth = _first_match(changed, "synthesis")
-    sessions = _first_match(changed, "recent sessions")
-    cont_bits: list[str] = []
-    if sessions:
-        # keep only the most recent couple of session stamps
-        tail = sessions.split(":", 1)[-1].strip()
-        cont_bits.append(", ".join(p.strip() for p in tail.split(",")[:2]))
-    if synth:
-        syn = re.search(r"\d{4}-[WQ]?\d+", synth)
-        if syn:
-            cont_bits.append("synthesis " + syn.group(0))
-    if cont_bits:
-        out.append("•  Since last: " + "  ·  ".join(cont_bits))
-
-    # 4) Maintenance collapsed to one honest line (full detail in the brief).
-    if attention:
-        cand = _num(_first_match(attention, "candidate"))
-        raw = _num(_first_match(attention, "raw_inbox"))
-        errs = _num(_first_match(attention, "synthesis errors"))
-        bits = []
-        if cand:
-            bits.append(f"{cand} candidates")
-        if raw:
-            bits.append(f"{raw} raw waiting")
-        if errs:
-            bits.append(f"{errs} synthesis errors")
-        tail = ("  —  " + ", ".join(bits)) if bits else ""
-        out.append(f"!  Maintenance: {len(warns)} warnings{tail}  —  `exocortex-health`")
-
-    out.append(f"   Full brief:  {BRIEF_FILE}   ·   score breakdown: exocortex-next --why")
-    out.append(bar)
+    # System status: one demoted, dim line — present but not the headline.
+    sys_bits: list[str] = []
+    if warns:
+        sys_bits.append(f"{len(warns)} warnings")
+    cand = _num(_first_match(attention, "candidate"))
+    if cand:
+        sys_bits.append(f"{cand} candidates")
+    prefix = (" · ".join(sys_bits) + "   ·   ") if sys_bits else ""
+    out.append("  " + _c(_DIM, f"{prefix}full · {BRIEF_FILE}"))
+    out.append(rule)
     return "\n".join(out)
 
 
@@ -241,14 +365,14 @@ def main() -> int:
         print(f"[exo] hook-context: skipped ({exc})", file=sys.stderr)
         return 0
 
-    # 1) Full model-facing manifest — ONLY for sessions the terminal wrapper did
-    #    not already cover. The wrapper injects the same `build_context_prompt`
-    #    manifest via `--append-system-prompt`, so re-printing it here in a
-    #    wrapped session duplicates a large block on screen (the "Scope/Authority"
-    #    wall) and feeds the model the manifest twice. The wrapper sets
-    #    EXOCORTEX_SESSION_ID in the child env before launch; its presence means
-    #    "wrapped" — in that case we skip straight to the human-readable brief.
-    #    Desktop/web/sub-agent sessions have no wrapper, so they still get it.
+    # Model-facing context goes into additionalContext (the model reads it, the
+    # user does not). The full manifest is added ONLY for sessions the terminal
+    # wrapper did not already cover — the wrapper injects the same
+    # `build_context_prompt` via `--append-system-prompt`, so repeating it in a
+    # wrapped session feeds the model the manifest twice. EXOCORTEX_SESSION_ID in
+    # the child env marks a wrapped session; desktop/web/sub-agent sessions have
+    # no wrapper, so they still get the manifest here.
+    context_parts: list[str] = []
     wrapped = bool(os.environ.get("EXOCORTEX_SESSION_ID"))
     if not wrapped:
         try:
@@ -257,19 +381,27 @@ def main() -> int:
             agent = w.default_agent(domain, project, cwd, root)
             mode = w.default_mode(agent)
             context = w.collect_context(root, cwd, agent, mode)
-            print(w.build_context_prompt(context))
+            context_parts.append(w.build_context_prompt(context))
         except Exception as exc:
             print(f"[exo] hook-context: skipped ({exc})", file=sys.stderr)
 
-    # 2) Human-readable digest LAST — printed at the bottom so it is the final
-    #    thing on screen at session start (no scrolling to the top to read it).
+    digest = None
     try:
         digest = render_brief_digest(root)
-        if digest:
-            print()
-            print(digest)
     except Exception as exc:  # pragma: no cover - digest must never break the hook
         print(f"[exo] hook-context: brief digest skipped ({exc})", file=sys.stderr)
+    if digest:
+        context_parts.append(digest)
+
+    # Emit one SessionStart payload. systemMessage is what the user actually SEES
+    # on screen; additionalContext is what the model reads. Plain stdout would
+    # only reach the model — the whole point of this fix is the on-screen brief.
+    payload: dict = {"hookSpecificOutput": {"hookEventName": "SessionStart"}}
+    if context_parts:
+        payload["hookSpecificOutput"]["additionalContext"] = "\n\n".join(context_parts)
+    if digest:
+        payload["systemMessage"] = digest
+    print(json.dumps(payload))
     return 0
 
 

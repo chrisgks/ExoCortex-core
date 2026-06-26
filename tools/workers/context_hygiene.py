@@ -42,6 +42,8 @@ IGNORED_PARTS = {
     "venv",
     "dist",
     "build",
+    "data",
+    "aws_data",
 }
 DEFAULT_ACTIVE_FILE_LIMIT = 8000
 DEFAULT_PRELOAD_RISK_LIMIT = 4000
@@ -77,15 +79,47 @@ def ignored(path: Path) -> bool:
     return any(part in IGNORED_PARTS for part in path.parts)
 
 
+def _walk_files(root: Path) -> Iterable[Path]:
+    """Yield every file under ``root``, pruning ignored subtrees, the journal,
+    and nested git repositories *during* traversal.
+
+    The hygiene checks only look for a handful of named context/state files at
+    the repo and scope roots. Two subtrees made a naive ``rglob`` walk dominate
+    brief/health render time (8s+ and growing):
+
+    - ``journal`` holds ~10k generated .md files (none of them context files;
+      journal READMEs were already filtered out).
+    - the research projects under ``domains/`` are each their *own* git repo
+      with large data/venv trees (~425k files total). ExoCortex's scope files
+      live at each repo's *root*, so we yield those (they appear in the repo
+      root's filenames before we stop) and then refuse to descend into the
+      repo's internals. ExoCortex deliberately does not deep-scan separate
+      projects — that is the correct altitude as well as the fast one.
+
+    ``os.walk`` with in-place dir pruning skips these subtrees entirely, taking
+    render to well under a second regardless of how large the projects grow."""
+    import os
+
+    pruned = IGNORED_PARTS | {"journal"}
+    root_str = os.fspath(root)
+    for dirpath, dirnames, filenames in os.walk(root_str):
+        nested_repo = dirpath != root_str and (".git" in dirnames or ".git" in filenames)
+        base = Path(dirpath)
+        for name in filenames:
+            yield base / name
+        if nested_repo:
+            dirnames[:] = []  # capture this repo's root files, skip its guts
+        else:
+            dirnames[:] = [d for d in dirnames if d not in pruned]
+
+
 def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="ignore")
 
 
 def active_context_files(root: Path) -> Iterable[Path]:
-    for path in root.rglob("*.md"):
-        if ignored(path):
-            continue
-        if "journal" in path.relative_to(root).parts and path.name not in {"automation-status.md", "hygiene-status.md"}:
+    for path in _walk_files(root):
+        if path.suffix != ".md":
             continue
         parts = path.relative_to(root).parts
         if path.name in ACTIVE_CONTEXT_NAMES or path.name == "wiki-map.md":
@@ -150,8 +184,8 @@ def check_context_files(root: Path, active_limit: int, preload_limit: int) -> li
 def check_state_files(root: Path, stale_days: int) -> list[Finding]:
     findings: list[Finding] = []
     cutoff = now().timestamp() - (stale_days * 86400)
-    for path in root.rglob("STATE.md"):
-        if ignored(path):
+    for path in _walk_files(root):
+        if path.name != "STATE.md":
             continue
         text = read_text(path)
         rel_path = rel(root, path)
@@ -252,8 +286,8 @@ def check_wiki_map(root: Path) -> list[Finding]:
         ]
     wiki_files = [
         path
-        for path in root.rglob("wiki/*.md")
-        if not ignored(path) and path.name not in {"README.md"}
+        for path in _walk_files(root)
+        if path.suffix == ".md" and path.parent.name == "wiki" and path.name != "README.md"
     ]
     if wiki_files and max(path.stat().st_mtime for path in wiki_files) > wiki_map.stat().st_mtime:
         return [
